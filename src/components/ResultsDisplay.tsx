@@ -1,16 +1,25 @@
-import { Badge } from '@/components/ui/badge';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { Progress } from '@/components/ui/progress';
-import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from '@/components/ui/accordion';
-import { AudioPlayer } from '@/components/AudioPlayer';
-import { BookOpen, Brain, BarChart3 } from 'lucide-react';
-import { motion } from 'framer-motion';
+import { Badge } from "@/components/ui/badge";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Progress } from "@/components/ui/progress";
+import {
+  Accordion,
+  AccordionContent,
+  AccordionItem,
+  AccordionTrigger,
+} from "@/components/ui/accordion";
+import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
+import { Button } from "@/components/ui/button";
+import { AudioPlayer } from "@/components/AudioPlayer";
+import { QuizModal } from "@/components/QuizModal";
+import { BookOpen, Brain, BarChart3, GraduationCap } from "lucide-react";
+import { motion } from "framer-motion";
+import { useState } from "react";
 
 export interface SummaryResult {
   summary: string;
   keyTerms: { term: string; definition: string }[];
   wordCount: number;
-  difficulty_level: 'beginner' | 'intermediate' | 'advanced';
+  difficulty_level: "beginner" | "intermediate" | "advanced";
 }
 
 interface ResultsDisplayProps {
@@ -19,14 +28,23 @@ interface ResultsDisplayProps {
 }
 
 const difficultyColors = {
-  beginner: 'bg-success text-success-foreground',
-  intermediate: 'bg-warm text-warm-foreground',
-  advanced: 'bg-destructive text-destructive-foreground',
+  beginner: "bg-success text-success-foreground",
+  intermediate: "bg-warm text-warm-foreground",
+  advanced: "bg-destructive text-destructive-foreground",
 };
 
-export function ResultsDisplay({ result, originalWordCount }: ResultsDisplayProps) {
-  const reductionPercent = Math.round((1 - result.wordCount / originalWordCount) * 100);
-  const readingTimeSaved = Math.round((originalWordCount - result.wordCount) / 250);
+export function ResultsDisplay({
+  result,
+  originalWordCount,
+}: ResultsDisplayProps) {
+  const [isQuizOpen, setIsQuizOpen] = useState(false);
+
+  const reductionPercent = Math.round(
+    (1 - result.wordCount / originalWordCount) * 100,
+  );
+  const readingTimeSaved = Math.round(
+    (originalWordCount - result.wordCount) / 250,
+  );
 
   return (
     <motion.div
@@ -41,7 +59,9 @@ export function ResultsDisplay({ result, originalWordCount }: ResultsDisplayProp
           <CardContent className="p-4 flex items-center gap-3">
             <BarChart3 className="w-8 h-8 text-primary" />
             <div>
-              <p className="text-2xl font-bold text-primary">{reductionPercent}%</p>
+              <p className="text-2xl font-bold text-primary">
+                {reductionPercent}%
+              </p>
               <p className="text-sm text-muted-foreground">shorter</p>
             </div>
           </CardContent>
@@ -50,7 +70,9 @@ export function ResultsDisplay({ result, originalWordCount }: ResultsDisplayProp
           <CardContent className="p-4 flex items-center gap-3">
             <BookOpen className="w-8 h-8 text-accent" />
             <div>
-              <p className="text-2xl font-bold text-accent">{readingTimeSaved} min</p>
+              <p className="text-2xl font-bold text-accent">
+                {readingTimeSaved} min
+              </p>
               <p className="text-sm text-muted-foreground">saved</p>
             </div>
           </CardContent>
@@ -59,7 +81,9 @@ export function ResultsDisplay({ result, originalWordCount }: ResultsDisplayProp
           <CardContent className="p-4 flex items-center gap-3">
             <Brain className="w-8 h-8 text-warm" />
             <div>
-              <p className="text-2xl font-bold text-warm">{result.keyTerms.length}</p>
+              <p className="text-2xl font-bold text-warm">
+                {result.keyTerms.length}
+              </p>
               <p className="text-sm text-muted-foreground">key terms</p>
             </div>
           </CardContent>
@@ -70,7 +94,9 @@ export function ResultsDisplay({ result, originalWordCount }: ResultsDisplayProp
       <Card>
         <CardContent className="p-4">
           <div className="flex items-center justify-between text-sm mb-2">
-            <span className="text-muted-foreground">{originalWordCount} → {result.wordCount} words</span>
+            <span className="text-muted-foreground">
+              {originalWordCount} → {result.wordCount} words
+            </span>
             <Badge className={difficultyColors[result.difficulty_level]}>
               {result.difficulty_level}
             </Badge>
@@ -88,7 +114,9 @@ export function ResultsDisplay({ result, originalWordCount }: ResultsDisplayProp
           </CardTitle>
         </CardHeader>
         <CardContent>
-          <p className="font-dyslexic text-lg leading-relaxed">{result.summary}</p>
+          <p className="font-dyslexic text-lg leading-relaxed">
+            {result.summary}
+          </p>
         </CardContent>
       </Card>
 
@@ -120,6 +148,41 @@ export function ResultsDisplay({ result, originalWordCount }: ResultsDisplayProp
           </Accordion>
         </CardContent>
       </Card>
+
+      {/* Gamified Quiz Section */}
+      <motion.div
+        initial={{ opacity: 0, y: 10 }}
+        animate={{ opacity: 1, y: 0 }}
+        transition={{ delay: 0.4 }}
+      >
+        <Alert className="bg-primary/5 border-primary/20 flex flex-col sm:flex-row items-center gap-4 py-6 px-6">
+          <div className="flex bg-primary/10 p-3 rounded-full shrink-0">
+            <GraduationCap className="w-8 h-8 text-primary" />
+          </div>
+          <div className="flex-1 text-center sm:text-left">
+            <AlertTitle className="text-xl mb-1">
+              Ready to test your knowledge?
+            </AlertTitle>
+            <AlertDescription className="text-muted-foreground text-base">
+              Take a quick gamified quiz generated securely from this summary to
+              reinforce your learning!
+            </AlertDescription>
+          </div>
+          <Button
+            size="lg"
+            className="shrink-0 w-full sm:w-auto"
+            onClick={() => setIsQuizOpen(true)}
+          >
+            Start Quiz
+          </Button>
+        </Alert>
+      </motion.div>
+
+      <QuizModal
+        text={result.summary}
+        isOpen={isQuizOpen}
+        onClose={() => setIsQuizOpen(false)}
+      />
     </motion.div>
   );
 }

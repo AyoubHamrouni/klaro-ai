@@ -20,14 +20,6 @@ serve(async (req) => {
     const GEMINI_API_KEY = Deno.env.get("GEMINI_API_KEY");
     if (!GEMINI_API_KEY) throw new Error("GEMINI_API_KEY is not configured in Supabase Edge Function Secrets");
 
-    const wordCount = text.trim().split(/\s+/).length;
-    if (wordCount > 5500) {
-      return new Response(JSON.stringify({ error: "Text exceeds 5000 word limit" }), {
-        status: 400,
-        headers: { ...corsHeaders, "Content-Type": "application/json" },
-      });
-    }
-
     const response = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${GEMINI_API_KEY}`, {
       method: "POST",
       headers: {
@@ -35,42 +27,40 @@ serve(async (req) => {
       },
       body: JSON.stringify({
         system_instruction: {
-          parts: [{ text: "You are a study assistant specialized in helping dyslexic and struggling readers. Your goal is to make learning material accessible and easy to understand. Always use simple, clear language. Break down complex ideas. Be encouraging." }]
+          parts: [{ text: "You are a study assistant that generates gamified quizzes for students to test their comprehension of a text. Generate 3 to 5 multiple choice questions. Make the questions clear and encouraging." }]
         },
         contents: [
           {
             role: "user",
-            parts: [{ text: `Summarize the following text for a student. The summary should be 15-20% of the original length. Use simple, clear language.\n\nText:\n${text}` }]
+            parts: [{ text: `Generate a multiple choice quiz for the following text:\n\nText:\n${text}` }]
           }
         ],
         generationConfig: {
           temperature: 0.7,
           responseMimeType: "application/json",
           responseSchema: {
-            type: "OBJECT",
-            properties: {
-              summary: {
-                type: "STRING",
-                description: "A clear, concise summary of the text using simple language. 15-20% of original length.",
-              },
-              keyTerms: {
-                type: "ARRAY",
-                description: "5-8 key terms with simple definitions",
-                items: {
-                  type: "OBJECT",
-                  properties: {
-                    term: { type: "STRING", description: "The key term or concept" },
-                    definition: { type: "STRING", description: "A simple 1-2 sentence definition" },
-                  },
-                  required: ["term", "definition"]
+            type: "ARRAY",
+            description: "An array of 3-5 quiz questions",
+            items: {
+              type: "OBJECT",
+              properties: {
+                question: { type: "STRING", description: "The text of the question" },
+                options: {
+                  type: "ARRAY",
+                  description: "Exactly 4 multiple choice options",
+                  items: { type: "STRING" }
+                },
+                correctAnswerIndex: {
+                  type: "INTEGER",
+                  description: "The 0-based index of the correct option in the options array"
+                },
+                explanation: {
+                  type: "STRING",
+                  description: "A short, encouraging explanation of why the correct answer is right"
                 }
               },
-              difficulty_level: {
-                type: "STRING",
-                description: "The difficulty level of the original text. Either 'beginner', 'intermediate', or 'advanced'.",
-              }
-            },
-            required: ["summary", "keyTerms", "difficulty_level"]
+              required: ["question", "options", "correctAnswerIndex", "explanation"]
+            }
           }
         }
       }),
@@ -90,13 +80,12 @@ serve(async (req) => {
     }
 
     const parsed = JSON.parse(candidateText);
-    const summaryWordCount = parsed.summary.trim().split(/\s+/).length;
 
-    return new Response(JSON.stringify({ ...parsed, wordCount: summaryWordCount }), {
+    return new Response(JSON.stringify({ questions: parsed }), {
       headers: { ...corsHeaders, "Content-Type": "application/json" },
     });
   } catch (e) {
-    console.error("summarize error:", e);
+    console.error("generate-quiz error:", e);
     return new Response(JSON.stringify({ error: e instanceof Error ? e.message : "Unknown error" }), {
       status: 500,
       headers: { ...corsHeaders, "Content-Type": "application/json" },
