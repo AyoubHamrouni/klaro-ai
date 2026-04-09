@@ -103,6 +103,7 @@ ELEVENLABS_API_KEY="your_elevenlabs_api_key_here"
 
 # Application Configuration
 VITE_API_URL="http://localhost:3001"
+FRONTEND_ORIGIN="http://localhost:5173"
 GEMINI_MODEL="gemini-1.5-flash"
 OPENROUTER_MODEL="microsoft/wizardlm-2-8x22b:free"
 ```
@@ -310,6 +311,7 @@ This project is licensed under the MIT License - see the [LICENSE](LICENSE) file
 GEMINI_API_KEY="your_key"
 ELEVENLABS_API_KEY="your_key"
 VITE_API_URL="http://localhost:3001"
+FRONTEND_ORIGIN="https://your-frontend-domain.com"
 ```
 
 ### 3. Installation & Start

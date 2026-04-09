@@ -20,6 +20,46 @@ import { errorHandler, notFoundHandler } from "./middleware/error.js";
  */
 const app = express();
 
+function parseAllowedOrigins() {
+  const envOrigins = [
+    process.env.FRONTEND_ORIGIN,
+    process.env.FRONTEND_URL,
+    process.env.CLIENT_ORIGIN,
+  ]
+    .filter(Boolean)
+    .flatMap((value) => value.split(",").map((item) => item.trim()))
+    .filter(Boolean);
+
+  return new Set(envOrigins);
+}
+
+const allowedOrigins = parseAllowedOrigins();
+
+function isAllowedOrigin(origin) {
+  if (!origin) return true;
+
+  if (/^https?:\/\/(localhost|127\.0\.0\.1)(:\d+)?$/i.test(origin)) {
+    return true;
+  }
+
+  return allowedOrigins.has(origin);
+}
+
+const corsOptions = {
+  origin(origin, callback) {
+    if (isAllowedOrigin(origin)) {
+      callback(null, true);
+      return;
+    }
+
+    callback(new Error(`CORS blocked for origin: ${origin}`));
+  },
+  credentials: true,
+  methods: ["GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"],
+  allowedHeaders: ["Content-Type", "Authorization", "X-Requested-With"],
+  optionsSuccessStatus: 204,
+};
+
 // ==========================================
 // MIDDLEWARE CONFIGURATION
 // ==========================================
@@ -29,14 +69,10 @@ const app = express();
  * Allows cross-origin requests from frontend applications
  */
 app.use(
-  cors({
-    origin:
-      process.env.NODE_ENV === "production"
-        ? ["https://your-production-domain.com"] // Update for production
-        : ["http://localhost:5173", "http://localhost:3000"], // Vite dev server
-    credentials: true,
-  }),
+  cors(corsOptions),
 );
+
+app.options("*", cors(corsOptions));
 
 /**
  * JSON parsing middleware
