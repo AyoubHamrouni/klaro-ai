@@ -1,63 +1,93 @@
 
 
-## Dyslexia Study Assistant — MVP Plan
+## Dyslexia Study Assistant — Full Feature Revision Plan
 
-### Phase 1: MVP (This Build)
-Text input → AI summarization → ElevenLabs TTS playback + dyslexia-friendly UI
-
-### Phase 2: Follow-up
-Gamified quizzes (MCQ, flashcards, points, streaks, animations)
+### Current State
+Single-page app with: text input + PDF upload, Gemini summarization, ElevenLabs TTS audio player, basic MCQ quiz modal, and a minimal accessibility toolbar. The UI is functional but plain — everything stacks vertically in one long scroll.
 
 ---
 
-### Pages & Layout
+### Design Overhaul: Tabbed Results + Polished UX
 
-**Single-page app** with a clean, dyslexia-friendly design:
-- OpenDyslexic-inspired font choices, high contrast, generous spacing
-- Warm cream/soft blue color palette (low visual stress)
-- Large clickable targets, clear visual hierarchy
+The core idea: after summarization, results appear in a **tabbed interface** (Summary, Key Terms, Listen, Quiz) instead of a long scroll. The input section gets a cleaner, more modern feel with better visual hierarchy.
 
-### Features to Build
+```text
+┌─────────────────────────────────────────────┐
+│  Header: StudyEase branding + dark mode     │
+│  AccessibilityToolbar (refined, inline)     │
+├─────────────────────────────────────────────┤
+│  TextInput (cleaner card, subtle animations)│
+├─────────────────────────────────────────────┤
+│  Stats Bar (reduction %, time saved, terms) │
+├─────────────────────────────────────────────┤
+│  ┌─ Summary ─┬─ Key Terms ─┬─ Listen ─┬─ Quiz ─┐
+│  │  Tab content area                          │
+│  └────────────────────────────────────────────┘
+└─────────────────────────────────────────────┘
+```
 
-#### 1. Text Input Section
-- **Text area** for pasting text directly
-- **PDF upload** with drag-and-drop (using pdf.js client-side extraction)
-- **Demo button** — loads a pre-built sample text instantly
-- Character limit: 5,000 words with live word count
-- Clear error messages for invalid inputs
+---
 
-#### 2. AI Summarization (Lovable AI Gateway)
-- Edge function that calls Lovable AI to generate:
-  - Condensed summary (15-20% of original)
-  - 5-8 key terms with definitions
-  - Difficulty level
-- Structured output via tool calling
-- Loading state with friendly progress indicator
+### Changes to Implement
 
-#### 3. Results Display
-- Summary shown in a dyslexia-friendly card with large text and line spacing
-- Key terms displayed as expandable cards/accordion
-- Word count comparison (original vs summary) with visual indicator
-- Difficulty badge
+#### 1. Tabbed Results View
+- Replace the vertical stack of Summary / Key Terms / Audio / Quiz CTA with a **Tabs component** (already in `ui/tabs.tsx`)
+- **Summary tab**: summary text with copy button, difficulty badge, word count bar
+- **Key Terms tab**: accordion cards (existing) with a "study all" flashcard mode button
+- **Listen tab**: audio player (existing) + read-along sentence highlighting
+- **Quiz tab**: inline quiz (move out of modal into the tab) with gamification elements
 
-#### 4. Text-to-Speech (ElevenLabs)
-- Connect ElevenLabs via connector
-- Edge function for TTS — converts summary text to audio
-- Play/pause controls with progress indicator
-- Adjustable playback speed
-- Read-along highlighting (highlight current sentence during playback)
+#### 2. Dark Mode Toggle
+- Add a sun/moon toggle to the accessibility toolbar
+- The CSS already has full `.dark` theme variables defined — just toggle the `dark` class on `<html>`
 
-#### 5. Dyslexia-Friendly UI Throughout
-- Toggle for OpenDyslexic font vs standard font
-- Adjustable text size (small/medium/large)
-- Reading ruler overlay option
-- High contrast mode toggle
-- Syllable spacing option
+#### 3. Refined Accessibility Toolbar
+- Move from floating top-right corner into the **header** as a clean inline bar
+- Add dark mode toggle, keep font toggle, text size, and reading ruler
+- Better icons and tooltips for each control
 
-### Technical Approach
-- Lovable Cloud for backend (edge functions)
-- Lovable AI Gateway for summarization
-- ElevenLabs connector for TTS
-- pdf.js (pdfjs-dist) for client-side PDF parsing
-- All state managed client-side (no database needed for MVP)
+#### 4. Gamified Quiz Improvements
+- Move quiz from modal to the Quiz tab (inline, full-width)
+- Add **points counter** with animated score popup on correct answers
+- Add **streak tracker** (consecutive correct answers) with fire emoji animation
+- Add **flashcard mode** in Key Terms tab: flip cards with term on front, definition on back
+- Show encouraging messages based on performance ("Great streak!", "Keep going!")
+- Confetti animation on quiz completion (use a lightweight CSS-only approach)
+
+#### 5. Read-Along Highlighting (Listen tab)
+- Display summary text split into sentences in the Listen tab
+- Estimate sentence timing from audio duration
+- Highlight the current sentence during playback with a smooth background transition
+
+#### 6. UI Polish
+- Add a sticky header with app name/logo and accessibility controls
+- Smooth scroll-to-results after summarization completes
+- Better loading state with step indicators ("Analyzing text...", "Extracting key terms...", "Almost done...")
+- Add a "New Text" / reset button to clear results and start over
+- Micro-animations: card entrance stagger, button hover states, tab transitions
+
+#### 7. Mobile Responsiveness
+- Ensure tabs stack properly on mobile (scrollable tab list)
+- Touch-friendly controls for audio player
+- Responsive stats bar (stack on mobile, grid on desktop)
+
+---
+
+### Technical Details
+
+**Files to create:**
+- `src/components/ResultsTabs.tsx` — new tabbed container wrapping Summary, Key Terms, Listen, Quiz
+- `src/components/FlashcardMode.tsx` — flip-card component for key terms
+- `src/components/ReadAlongText.tsx` — sentence-highlighted text synced with audio
+- `src/components/QuizInline.tsx` — refactored quiz (from modal to inline) with streak/points
+- `src/components/Header.tsx` — sticky header with branding + accessibility controls
+
+**Files to modify:**
+- `src/pages/Index.tsx` — use new Header, ResultsTabs; add reset flow and scroll-to-results
+- `src/components/AccessibilityToolbar.tsx` — add dark mode toggle, refactor to inline layout
+- `src/components/AudioPlayer.tsx` — accept onTimeUpdate callback for read-along sync
+- `src/components/ResultsDisplay.tsx` — remove (replaced by ResultsTabs)
+- `src/index.css` — add dark mode body transition, flashcard flip animation, confetti keyframes
+
+**No backend changes needed** — all edge functions remain the same.
 
