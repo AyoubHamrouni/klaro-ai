@@ -1,4 +1,5 @@
 import { useEffect, useState, useRef } from "react";
+import { useTheme } from "next-themes";
 import { StudyChat } from "../components/StudyChat";
 import { TextInput } from "../components/TextInput";
 import { ResultsTabs, SummaryResult } from "../components/ResultsTabs";
@@ -43,8 +44,26 @@ export default function Index() {
     "quiz",
   );
   const [mindmapRequestedFor, setMindmapRequestedFor] = useState("");
+  const [dyslexicFont, setDyslexicFont] = useState(false);
+  const [fontSize, setFontSize] = useState<"normal" | "large" | "xlarge">(
+    "normal",
+  );
+  const { theme, setTheme, resolvedTheme } = useTheme();
+  const voiceSupported =
+    typeof window !== "undefined" &&
+    ("SpeechRecognition" in window || "webkitSpeechRecognition" in window);
 
   const resultsRef = useRef<HTMLDivElement>(null);
+  const darkMode = (resolvedTheme ?? theme) === "dark";
+  const fontScaleClass = {
+    normal: "",
+    large: "text-[1.04rem]",
+    xlarge: "text-[1.08rem]",
+  }[fontSize];
+
+  const toggleDarkMode = (nextValue: boolean) => {
+    setTheme(nextValue ? "dark" : "light");
+  };
 
   const handleSummarize = async (text: string) => {
     setIsLoading(true);
@@ -196,7 +215,7 @@ export default function Index() {
 
   return (
     <div
-      className={`min-h-[100dvh] relative overflow-hidden transition-colors duration-700 font-dyslexic ${focusMode ? "bg-black text-white" : "bg-background"}`}
+      className={`min-h-[100dvh] relative overflow-hidden transition-colors duration-700 ${dyslexicFont ? "font-dyslexic" : ""} ${fontScaleClass} ${focusMode ? "bg-black text-white" : "bg-background"}`}
     >
       {/* Background Layer */}
       <div
@@ -224,6 +243,12 @@ export default function Index() {
         onOpenVault={() => setIsVaultOpen(true)}
         showRuler={showRuler}
         setShowRuler={setShowRuler}
+        dyslexicFont={dyslexicFont}
+        setDyslexicFont={setDyslexicFont}
+        fontSize={fontSize}
+        setFontSize={setFontSize}
+        darkMode={darkMode}
+        setDarkMode={toggleDarkMode}
       />
       <HistorySidebar
         onSelect={handleHistorySelect}
@@ -490,8 +515,10 @@ export default function Index() {
                     <aside className="lg:col-span-4 space-y-6 hidden lg:block">
                       <div className="glass-card rounded-[2.5rem] p-6 border-white/10 shadow-2xl">
                         <ActionPlan
-                          summary={result.summary}
-                          initialTasks={result.tasks}
+                          result={result}
+                          activeView={dashboardView}
+                          focusMode={focusMode}
+                          voiceSupported={voiceSupported}
                         />
                       </div>
                       <FocusTimer />

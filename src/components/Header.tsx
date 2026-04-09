@@ -59,11 +59,11 @@ export function Header({
           </span>
         </div>
 
-        <div className="flex items-center gap-1">
+        <div className="flex items-center gap-1 rounded-full border border-white/10 bg-white/5 p-1 backdrop-blur-md shadow-sm">
           <Button
             variant="ghost"
             size="icon"
-            className="h-8 w-8 text-muted-foreground mr-2"
+            className="h-8 w-8 rounded-full text-muted-foreground"
             onClick={onOpenVault}
             title="Open Study Vault"
           >
@@ -74,7 +74,7 @@ export function Header({
             <Button
               variant="ghost"
               size="icon"
-              className="h-8 w-8"
+              className="h-8 w-8 rounded-full"
               onClick={onReset}
               title="New study session"
             >
@@ -84,7 +84,7 @@ export function Header({
           <Button
             variant={dyslexicFont ? "default" : "ghost"}
             size="icon"
-            className="h-8 w-8"
+            className="h-8 w-8 rounded-full"
             onClick={() => setDyslexicFont(!dyslexicFont)}
             title="Toggle dyslexia-friendly font"
           >
@@ -93,7 +93,7 @@ export function Header({
           <Button
             variant="ghost"
             size="icon"
-            className="h-8 w-8"
+            className="h-8 w-8 rounded-full"
             onClick={() =>
               setFontSize(
                 fontSize === "normal"
@@ -114,16 +114,16 @@ export function Header({
           <Button
             variant={showRuler ? "default" : "ghost"}
             size="icon"
-            className="h-8 w-8"
+            className="h-8 w-8 rounded-full"
             onClick={() => setShowRuler(!showRuler)}
             title="Reading ruler"
           >
             <Eye className="w-4 h-4" />
           </Button>
           <Button
-            variant="ghost"
+            variant={darkMode ? "default" : "ghost"}
             size="icon"
-            className="h-8 w-8"
+            className="h-8 w-8 rounded-full"
             onClick={() => setDarkMode(!darkMode)}
             title="Toggle dark mode"
           >

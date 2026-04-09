@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useMemo, useState, useRef } from "react";
 import mermaid from "mermaid";
 import { motion } from "framer-motion";
 import {
@@ -13,6 +13,11 @@ import { Button } from "@/components/ui/button";
 
 interface MindMapProps {
   mindmapData: string;
+}
+
+interface MindmapTreeNode {
+  label: string;
+  children: MindmapTreeNode[];
 }
 
 mermaid.initialize({
@@ -31,10 +36,98 @@ mermaid.initialize({
     mainBkg: "#1e1b4b",
     nodeBkg: "#1e1b4b",
     clusterBkg: "#0f172a",
-    fontFamily: "Inter, sans-serif",
+    fontFamily: "Lexend, Atkinson Hyperlegible, sans-serif",
     fontSize: "14px",
   },
 });
+
+function normalizeMindmapData(data: string) {
+  const cleaned = data
+    .replace(/```(?:mermaid)?/gi, "")
+    .replace(/```/g, "")
+    .trim();
+
+  return cleaned.startsWith("mindmap") ? cleaned : `mindmap\n${cleaned}`;
+}
+
+function extractLabel(line: string) {
+  return line
+    .trim()
+    .replace(/^root\(\(/i, "")
+    .replace(/^\(\(/, "")
+    .replace(/\)\)$/, "")
+    .replace(/^[-*]\s*/, "")
+    .trim();
+}
+
+function parseMindmapTree(data: string): MindmapTreeNode {
+  const root: MindmapTreeNode = { label: "Mind Map", children: [] };
+  const stack: Array<{ depth: number; node: MindmapTreeNode }> = [
+    { depth: -1, node: root },
+  ];
+
+  let rootAssigned = false;
+  const lines = normalizeMindmapData(data)
+    .split(/\r?\n/)
+    .map((line) => line.replace(/\t/g, "  "))
+    .filter((line) => line.trim().length > 0 && line.trim() !== "mindmap");
+
+  for (const line of lines) {
+    const depth = Math.max(0, Math.floor((line.match(/^ */)?.[0].length ?? 0) / 2));
+    const label = extractLabel(line) || "Node";
+
+    if (depth === 0 && !rootAssigned) {
+      root.label = label;
+      rootAssigned = true;
+      stack.length = 1;
+      stack[0] = { depth: 0, node: root };
+      continue;
+    }
+
+    while (stack.length > 1 && stack[stack.length - 1].depth >= depth) {
+      stack.pop();
+    }
+
+    const parent = stack[stack.length - 1].node;
+    const child: MindmapTreeNode = { label, children: [] };
+    parent.children.push(child);
+    stack.push({ depth, node: child });
+  }
+
+  return root;
+}
+
+function MindmapNode({
+  node,
+  depth = 0,
+}: {
+  node: MindmapTreeNode;
+  depth?: number;
+}) {
+  return (
+    <div className={depth === 0 ? "space-y-4" : "pl-5 border-l border-white/10 space-y-3"}>
+      {depth > 0 && (
+        <div className="inline-flex items-center gap-2 rounded-2xl border border-white/10 bg-white/5 px-4 py-2 text-sm font-bold text-foreground shadow-sm">
+          <span className="h-2 w-2 rounded-full bg-primary" />
+          {node.label}
+        </div>
+      )}
+      {depth === 0 && (
+        <div className="inline-flex items-center gap-2 rounded-full border border-primary/20 bg-primary/10 px-5 py-2 text-base font-black text-foreground">
+          <GitBranch className="w-4 h-4 text-primary" />
+          {node.label}
+        </div>
+      )}
+      {node.children.length > 0 && (
+        <div className="space-y-3">
+          {node.children.map((child) => (
+            <MindmapNode key={`${depth}-${child.label}`} node={child} depth={depth + 1} />
+          ))}
+        </div>
+      )}
+    </div>
+  );
+}
 
 export function MindMap({ mindmapData }: MindMapProps) {
   const containerRef = useRef<HTMLDivElement>(null);
@@ -43,6 +136,8 @@ export function MindMap({ mindmapData }: MindMapProps) {
   const [hasError, setHasError] = useState(false);
   const [scale, setScale] = useState(1);
 
+  const fallbackTree = useMemo(() => parseMindmapTree(mindmapData), [mindmapData]);
+
   useEffect(() => {
     let cancelled = false;
 
@@ -50,10 +145,7 @@ export function MindMap({ mindmapData }: MindMapProps) {
       setIsRendering(true);
       setHasError(false);
 
-      // Ensure the syntax uses "mindmap" type
-      const cleanData = mindmapData.trim().startsWith("mindmap")
-        ? mindmapData.trim()
-        : `mindmap\n${mindmapData.trim()}`;
+      const cleanData = normalizeMindmapData(mindmapData);
 
       try {
         const id = `mm-${Date.now()}`;
@@ -78,6 +170,7 @@ export function MindMap({ mindmapData }: MindMapProps) {
   }, [mindmapData]);
 
   const downloadSvg = () => {
+    if (!svgContent) return;
     const blob = new Blob([svgContent], { type: "image/svg+xml" });
     const url = URL.createObjectURL(blob);
     const a = document.createElement("a");
@@ -93,7 +186,6 @@ export function MindMap({ mindmapData }: MindMapProps) {
       animate={{ opacity: 1, y: 0 }}
       className="glass-card rounded-[2.5rem] p-6 border-white/10 shadow-2xl overflow-hidden"
     >
-      {/* Header */}
       <div className="flex items-center justify-between mb-4">
         <div className="flex items-center gap-3">
           <div className="p-2 rounded-xl bg-indigo-500/15 border border-indigo-500/20">
@@ -106,7 +198,6 @@ export function MindMap({ mindmapData }: MindMapProps) {
             </p>
           </div>
         </div>
-        {/* Controls */}
         <div className="flex items-center gap-2">
           <Button
             variant="ghost"
@@ -148,10 +239,9 @@ export function MindMap({ mindmapData }: MindMapProps) {
         </div>
       </div>
 
-      {/* Diagram Area */}
       <div
         ref={containerRef}
-        className="relative min-h-[400px] md:min-h-[500px] flex items-center justify-center bg-indigo-950/20 rounded-2xl border border-indigo-500/10 overflow-auto"
+        className="relative min-h-[400px] md:min-h-[500px] flex items-center justify-center bg-indigo-950/20 rounded-2xl border border-indigo-500/10 overflow-auto p-4"
       >
         {isRendering && (
           <div className="absolute inset-0 flex items-center justify-center flex-col gap-3 text-muted-foreground">
@@ -159,20 +249,7 @@ export function MindMap({ mindmapData }: MindMapProps) {
             <p className="text-sm font-medium">Rendering mind map…</p>
           </div>
         )}
-        {hasError && !isRendering && (
-          <div className="text-center text-muted-foreground p-8 space-y-2">
-            <GitBranch className="w-10 h-10 mx-auto text-indigo-400/30" />
-            <p className="font-bold text-sm">Diagram format unavailable</p>
-            <p className="text-xs opacity-60">
-              The AI returned a format that couldn't be rendered. Try
-              summarizing again.
-            </p>
-            <pre className="text-left text-[10px] bg-black/30 rounded-xl p-4 max-h-40 overflow-auto text-muted-foreground mt-2">
-              {mindmapData}
-            </pre>
-          </div>
-        )}
-        {svgContent && !isRendering && (
+        {svgContent && !isRendering && !hasError && (
           <div
             style={{
               transform: `scale(${scale})`,
@@ -182,6 +259,27 @@ export function MindMap({ mindmapData }: MindMapProps) {
             className="p-4 w-full"
             dangerouslySetInnerHTML={{ __html: svgContent }}
           />
+        )}
+        {hasError && !isRendering && (
+          <div className="w-full max-w-2xl space-y-5">
+            <div className="text-center text-muted-foreground p-2">
+              <GitBranch className="w-10 h-10 mx-auto text-indigo-400/40" />
+              <p className="font-bold text-sm">Using fallback mind map</p>
+              <p className="text-xs opacity-60">
+                The structured tree below is rendered locally when Mermaid syntax is unstable.
+              </p>
+            </div>
+            <div
+              style={{
+                transform: `scale(${scale})`,
+                transformOrigin: "center top",
+                transition: "transform 0.2s ease",
+              }}
+              className="w-full"
+            >
+              <MindmapNode node={fallbackTree} />
+            </div>
+          </div>
         )}
       </div>
     </motion.div>

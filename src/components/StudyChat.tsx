@@ -10,8 +10,13 @@ import {
   User,
   Sparkles,
   Eraser,
+  Mic,
+  Volume2,
+  VolumeX,
+  Loader2,
 } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
+import { toast } from "@/hooks/use-toast";
 
 interface Message {
   role: "user" | "assistant";
@@ -24,6 +29,9 @@ interface StudyChatProps {
 
 export function StudyChat({ context }: StudyChatProps) {
   const [isOpen, setIsOpen] = useState(false);
+  const [voiceMode, setVoiceMode] = useState(false);
+  const [isListening, setIsListening] = useState(false);
+  const [isSpeaking, setIsSpeaking] = useState(false);
   const [messages, setMessages] = useState<Message[]>([
     {
       role: "assistant",
@@ -33,6 +41,8 @@ export function StudyChat({ context }: StudyChatProps) {
   ]);
   const [input, setInput] = useState("");
   const [isTyping, setIsTyping] = useState(false);
+  const recognitionRef = useRef<SpeechRecognitionLike | null>(null);
+  const audioRef = useRef<HTMLAudioElement | null>(null);
   const scrollRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
@@ -44,13 +54,75 @@ export function StudyChat({ context }: StudyChatProps) {
     }
   }, [messages, isTyping]);
 
-  const handleSend = async () => {
-    if (!input.trim() || isTyping) return;
+  useEffect(() => {
+    return () => {
+      recognitionRef.current?.abort();
+      if (audioRef.current) {
+        audioRef.current.pause();
+        audioRef.current = null;
+      }
+    };
+  }, []);
+
+  const supportsVoice =
+    typeof window !== "undefined" &&
+    ("SpeechRecognition" in window || "webkitSpeechRecognition" in window);
+
+  const stopSpeaking = () => {
+    if (audioRef.current) {
+      audioRef.current.pause();
+      audioRef.current = null;
+    }
+    setIsSpeaking(false);
+  };
+
+  const speakReply = async (text: string) => {
+    if (!voiceMode || !text.trim()) return;
+
+    try {
+      stopSpeaking();
+      setIsSpeaking(true);
+
+      const response = await fetch(
+        `${import.meta.env.VITE_API_URL}/text-to-speech`,
+        {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ text }),
+        },
+      );
+
+      if (!response.ok) {
+        throw new Error("Failed to generate speech");
+      }
+
+      const blob = await response.blob();
+      const url = URL.createObjectURL(blob);
+      const audio = new Audio(url);
+      audioRef.current = audio;
+      audio.onended = () => {
+        URL.revokeObjectURL(url);
+        setIsSpeaking(false);
+      };
+      audio.onerror = () => {
+        URL.revokeObjectURL(url);
+        setIsSpeaking(false);
+      };
+      await audio.play();
+    } catch (error) {
+      console.error(error);
+      setIsSpeaking(false);
+    }
+  };
+
+  const handleSend = async (overrideMessage?: string) => {
+    const messageText = (overrideMessage ?? input).trim();
+    if (!messageText || isTyping) return;
 
     if (!context) {
       setMessages((prev) => [
         ...prev,
-        { role: "user", content: input.trim() },
+        { role: "user", content: messageText },
         {
           role: "assistant",
           content:
@@ -58,10 +130,13 @@ export function StudyChat({ context }: StudyChatProps) {
         },
       ]);
       setInput("");
+      void speakReply(
+        "I'd love to help, but I don't have a lesson to reference yet. Please upload a PDF or paste some text first so I can assist you best.",
+      );
       return;
     }
 
-    const userMsg = input.trim();
+    const userMsg = messageText;
     setInput("");
     setMessages((prev) => [...prev, { role: "user", content: userMsg }]);
     setIsTyping(true);
@@ -84,21 +159,88 @@ export function StudyChat({ context }: StudyChatProps) {
         ...prev,
         { role: "assistant", content: data.reply },
       ]);
+      void speakReply(data.reply);
     } catch (err) {
+      const fallback =
+        "I'm having a little trouble connecting to my brain right now. Please try again in a second!";
       setMessages((prev) => [
         ...prev,
         {
           role: "assistant",
-          content:
-            "I'm having a little trouble connecting to my brain right now. Please try again in a second!",
+          content: fallback,
         },
       ]);
+      void speakReply(fallback);
     } finally {
       setIsTyping(false);
     }
   };
 
+  const toggleVoiceInput = () => {
+    if (!supportsVoice) {
+      toast({
+        variant: "destructive",
+        title: "Voice input unavailable",
+        description: "Your browser does not support speech recognition.",
+      });
+      return;
+    }
+
+    if (isListening) {
+      recognitionRef.current?.stop();
+      return;
+    }
+
+    const Recognition =
+      window.SpeechRecognition ?? window.webkitSpeechRecognition;
+    const recognition = new Recognition();
+    recognition.lang = "en-US";
+    recognition.interimResults = false;
+    recognition.continuous = false;
+
+    recognition.onstart = () => {
+      setIsListening(true);
+    };
+
+    recognition.onresult = (event) => {
+      const transcript = event.results[0]?.[0]?.transcript?.trim() ?? "";
+      if (transcript) {
+        setInput(transcript);
+        void handleSend(transcript);
+      }
+    };
+
+    recognition.onerror = () => {
+      setIsListening(false);
+      toast({
+        variant: "destructive",
+        title: "Voice input failed",
+        description: "Please try speaking again or type your question instead.",
+      });
+    };
+
+    recognition.onend = () => {
+      setIsListening(false);
+      recognitionRef.current = null;
+    };
+
+    recognitionRef.current = recognition;
+    try {
+      recognition.start();
+    } catch (error) {
+      setIsListening(false);
+      toast({
+        variant: "destructive",
+        title: "Voice input failed",
+        description: "Please try again after allowing microphone access.",
+      });
+    }
+  };
+
   const clearChat = () => {
+    recognitionRef.current?.abort();
+    stopSpeaking();
+    setInput("");
     setMessages([
       {
         role: "assistant",
@@ -159,17 +301,59 @@ export function StudyChat({ context }: StudyChatProps) {
                       {context ? "Active Session" : "Awaiting Context"}
                     </span>
                   </div>
+                  {voiceMode && (
+                    <p className="text-[10px] text-primary uppercase font-black tracking-widest mt-1">
+                      {isSpeaking
+                        ? "Speaking response..."
+                        : isListening
+                          ? "Listening..."
+                          : "Voice mode on"}
+                    </p>
+                  )}
                 </div>
               </div>
-              <Button
-                variant="ghost"
-                size="icon"
-                onClick={clearChat}
-                className="rounded-full hover:bg-white/10 text-muted-foreground hover:text-foreground"
-                title="Clear Chat"
-              >
-                <Eraser className="w-4 h-4" />
-              </Button>
+              <div className="flex items-center gap-2">
+                <Button
+                  variant="ghost"
+                  size="icon"
+                  onClick={() =>
+                    setVoiceMode((v) => {
+                      if (v) stopSpeaking();
+                      return !v;
+                    })
+                  }
+                  className="rounded-full hover:bg-white/10 text-muted-foreground hover:text-foreground"
+                  title={voiceMode ? "Disable voice replies" : "Enable voice replies"}
+                >
+                  {voiceMode ? (
+                    <Volume2 className="w-4 h-4" />
+                  ) : (
+                    <VolumeX className="w-4 h-4" />
+                  )}
+                </Button>
+                <Button
+                  variant="ghost"
+                  size="icon"
+                  onClick={toggleVoiceInput}
+                  className="rounded-full hover:bg-white/10 text-muted-foreground hover:text-foreground"
+                  title={isListening ? "Stop listening" : "Speak to the study buddy"}
+                >
+                  {isListening ? (
+                    <Loader2 className="w-4 h-4 animate-spin" />
+                  ) : (
+                    <Mic className="w-4 h-4" />
+                  )}
+                </Button>
+                <Button
+                  variant="ghost"
+                  size="icon"
+                  onClick={clearChat}
+                  className="rounded-full hover:bg-white/10 text-muted-foreground hover:text-foreground"
+                  title="Clear Chat"
+                >
+                  <Eraser className="w-4 h-4" />
+                </Button>
+              </div>
             </div>
 
             {/* Messages */}

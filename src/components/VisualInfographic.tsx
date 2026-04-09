@@ -1,13 +1,6 @@
 import { motion } from "framer-motion";
+import type { ReactNode } from "react";
 import { BarChart2, TrendingUp, BookOpen, Hash, Zap } from "lucide-react";
-import {
-  RadarChart,
-  PolarGrid,
-  PolarAngleAxis,
-  Radar,
-  ResponsiveContainer,
-  Tooltip,
-} from "recharts";
 
 interface VisualInfographicProps {
   summary: string;
@@ -32,6 +25,27 @@ function getDifficultyColor(level: string): string {
   return "text-rose-400";
 }
 
+function clamp(value: number, min: number, max: number) {
+  return Math.max(min, Math.min(max, value));
+}
+
+function createPolygonPoints(values: number[]) {
+  const centerX = 160;
+  const centerY = 124;
+  const radius = 72;
+  const angleStep = (Math.PI * 2) / values.length;
+
+  return values
+    .map((value, index) => {
+      const angle = -Math.PI / 2 + angleStep * index;
+      const r = radius * (value / 100);
+      const x = centerX + Math.cos(angle) * r;
+      const y = centerY + Math.sin(angle) * r;
+      return `${x},${y}`;
+    })
+    .join(" ");
+}
+
 export function VisualInfographic({
   summary,
   originalWordCount,
@@ -39,33 +53,37 @@ export function VisualInfographic({
   difficultyLevel,
 }: VisualInfographicProps) {
   const summaryWordCount = summary.trim().split(/\s+/).length;
-  const compressionRatio = Math.round(
-    (1 - summaryWordCount / originalWordCount) * 100,
+  const compressionRatio = clamp(
+    Math.round((1 - summaryWordCount / Math.max(1, originalWordCount)) * 100),
+    0,
+    100,
   );
   const readingTimeMin = Math.max(1, Math.ceil(summaryWordCount / 200));
   const diffScore = difficultyToScore(difficultyLevel);
 
-  // Radar data – 5 cognitive dimensions derived from the text stats
-  const radarData = [
+  const dimensions = [
     {
-      dimension: "Density",
-      score: Math.min(100, Math.round((keyTerms.length / 8) * 100)),
+      label: "Density",
+      score: clamp(Math.round((keyTerms.length / 8) * 100), 8, 100),
     },
-    { dimension: "Breadth", score: Math.min(100, compressionRatio) },
-    { dimension: "Complexity", score: diffScore },
+    { label: "Compression", score: compressionRatio },
+    { label: "Complexity", score: diffScore },
     {
-      dimension: "Vocabulary",
-      score: Math.min(100, Math.round((keyTerms.length / 5) * 80)),
+      label: "Vocabulary",
+      score: clamp(Math.round((keyTerms.length / 5) * 80), 10, 100),
     },
     {
-      dimension: "Depth",
-      score: Math.min(
-        100,
+      label: "Depth",
+      score: clamp(
         Math.round((summaryWordCount / Math.max(1, originalWordCount)) * 800),
+        10,
+        100,
       ),
     },
   ];
 
+  const radarPoints = createPolygonPoints(dimensions.map((item) => item.score));
+  const radarGrid = [24, 48, 72];
   const topTerms = keyTerms.slice(0, 6);
 
   return (
@@ -75,7 +93,6 @@ export function VisualInfographic({
       transition={{ delay: 0.05 }}
       className="space-y-5"
     >
-      {/* Header */}
       <div className="glass-card rounded-[2.5rem] p-6 border-white/10 shadow-2xl">
         <div className="flex items-center gap-3 mb-5">
           <div className="p-2 rounded-xl bg-violet-500/15 border border-violet-500/20">
@@ -91,7 +108,6 @@ export function VisualInfographic({
           </div>
         </div>
 
-        {/* Stat Cards */}
         <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
           <StatCard
             icon={<Hash className="w-4 h-4" />}
@@ -121,42 +137,81 @@ export function VisualInfographic({
         </div>
       </div>
 
-      {/* Radar + Key Terms Grid */}
       <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
-        {/* Radar */}
         <div className="glass-card rounded-[2.5rem] p-6 border-white/10 shadow-2xl">
           <p className="text-xs font-black uppercase tracking-[0.15em] text-muted-foreground mb-4">
             Cognitive Profile
           </p>
-          <ResponsiveContainer width="100%" height={200}>
-            <RadarChart data={radarData} cx="50%" cy="50%">
-              <PolarGrid stroke="#6366f120" gridType="polygon" />
-              <PolarAngleAxis
-                dataKey="dimension"
-                tick={{ fill: "#94a3b8", fontSize: 10, fontWeight: 700 }}
-              />
-              <Radar
-                name="Score"
-                dataKey="score"
+          <div className="rounded-[2rem] border border-white/10 bg-indigo-950/20 p-4 overflow-hidden">
+            <svg viewBox="0 0 320 250" className="w-full h-[250px]">
+              <defs>
+                <linearGradient id="profileFill" x1="0%" y1="0%" x2="100%" y2="100%">
+                  <stop offset="0%" stopColor="#818cf8" stopOpacity="0.55" />
+                  <stop offset="100%" stopColor="#c084fc" stopOpacity="0.2" />
+                </linearGradient>
+              </defs>
+              {[...radarGrid, 100].map((ring) => {
+                const points = createPolygonPoints(
+                  dimensions.map(() => ring),
+                );
+                return (
+                  <polygon
+                    key={ring}
+                    points={points}
+                    fill="none"
+                    stroke="rgba(129,140,248,0.15)"
+                    strokeWidth="1"
+                  />
+                );
+              })}
+              {dimensions.map((item, index) => {
+                const angle = -Math.PI / 2 + (Math.PI * 2 * index) / dimensions.length;
+                const x = 160 + Math.cos(angle) * 88;
+                const y = 124 + Math.sin(angle) * 88;
+                const labelX = 160 + Math.cos(angle) * 106;
+                const labelY = 124 + Math.sin(angle) * 106;
+                return (
+                  <g key={item.label}>
+                    <line
+                      x1="160"
+                      y1="124"
+                      x2={x}
+                      y2={y}
+                      stroke="rgba(129,140,248,0.18)"
+                      strokeWidth="1"
+                    />
+                    <circle cx={x} cy={y} r="3" fill="#818cf8" />
+                    <text
+                      x={labelX}
+                      y={labelY}
+                      textAnchor="middle"
+                      dominantBaseline="middle"
+                      fill="#94a3b8"
+                      fontSize="10"
+                      fontWeight="700"
+                    >
+                      {item.label}
+                    </text>
+                  </g>
+                );
+              })}
+              <polygon
+                points={radarPoints}
+                fill="url(#profileFill)"
                 stroke="#818cf8"
-                fill="#818cf8"
-                fillOpacity={0.25}
-                dot={{ fill: "#818cf8", r: 3 }}
+                strokeWidth="2.5"
+                strokeLinejoin="round"
               />
-              <Tooltip
-                contentStyle={{
-                  background: "#0f172a",
-                  border: "1px solid #4f46e5",
-                  borderRadius: 12,
-                  fontSize: 11,
-                }}
-                formatter={(v: number) => [`${v}/100`, "Score"]}
-              />
-            </RadarChart>
-          </ResponsiveContainer>
+              {dimensions.map((item, index) => {
+                const angle = -Math.PI / 2 + (Math.PI * 2 * index) / dimensions.length;
+                const x = 160 + Math.cos(angle) * (72 * (item.score / 100));
+                const y = 124 + Math.sin(angle) * (72 * (item.score / 100));
+                return <circle key={`${item.label}-dot`} cx={x} cy={y} r="4" fill="#c084fc" />;
+              })}
+            </svg>
+          </div>
         </div>
 
-        {/* Key Concept Bars */}
         <div className="glass-card rounded-[2.5rem] p-6 border-white/10 shadow-2xl">
           <p className="text-xs font-black uppercase tracking-[0.15em] text-muted-foreground mb-4">
             Core Concepts
@@ -201,7 +256,6 @@ export function VisualInfographic({
         </div>
       </div>
 
-      {/* Difficulty Progress Bar */}
       <div className="glass-card rounded-[2.5rem] p-6 border-white/10 shadow-2xl">
         <div className="flex items-center justify-between mb-3">
           <p className="text-xs font-black uppercase tracking-[0.15em] text-muted-foreground">
@@ -249,7 +303,7 @@ function StatCard({
   color,
   textSmall = false,
 }: {
-  icon: React.ReactNode;
+  icon: ReactNode;
   label: string;
   value: string;
   color: string;
@@ -263,16 +317,18 @@ function StatCard({
   };
 
   return (
-    <div className={`rounded-2xl p-3 border ${bg[color]} flex flex-col gap-1`}>
-      <div className="opacity-70">{icon}</div>
-      <p
-        className={`font-black ${textSmall ? "text-sm" : "text-2xl"} leading-tight truncate`}
-      >
-        {value}
-      </p>
-      <p className="text-[10px] opacity-60 font-bold uppercase tracking-wide">
-        {label}
-      </p>
+    <div className={`rounded-2xl border p-3 flex gap-3 items-start ${bg[color]}`}>
+      <div className="mt-0.5">{icon}</div>
+      <div className="min-w-0">
+        <p
+          className={`font-black leading-tight ${textSmall ? "text-xs" : "text-sm"}`}
+        >
+          {value}
+        </p>
+        <p className="text-[10px] uppercase tracking-widest opacity-70">
+          {label}
+        </p>
+      </div>
     </div>
   );
 }

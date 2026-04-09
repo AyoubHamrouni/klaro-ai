@@ -418,7 +418,7 @@ function getMockMindmap(text) {
   const topic =
     text.substring(0, 30).split(" ").slice(0, 2).join(" ") || "Topic";
   return `mindmap
-  root(( ${topic} ))
+  root((${topic}))
     Key Concepts
       Main Idea
         Definition
@@ -441,6 +441,99 @@ function getMockMindmap(text) {
  */
 function getMockMindmapPayload(summary) {
   return { mindmap: getMockMindmap(summary) };
+}
+
+function isValidMindmapSyntax(mindmap) {
+  if (typeof mindmap !== "string") return false;
+  const trimmed = mindmap.trim();
+  return trimmed.startsWith("mindmap") && trimmed.split(/\r?\n/).length > 1;
+}
+
+function extractMindmapTopic(text) {
+  const stopwords = new Set([
+    "the",
+    "and",
+    "for",
+    "with",
+    "that",
+    "this",
+    "from",
+    "into",
+    "your",
+    "about",
+    "their",
+    "they",
+    "them",
+    "will",
+    "have",
+    "has",
+    "are",
+    "was",
+    "were",
+    "you",
+    "can",
+    "our",
+    "but",
+    "not",
+    "all",
+    "one",
+    "two",
+    "also",
+  ]);
+
+  return (
+    text
+      .toLowerCase()
+      .replace(/[^a-z0-9\s-]/g, " ")
+      .split(/\s+/)
+      .filter((word) => word.length > 3 && !stopwords.has(word))
+      .slice(0, 4)
+      .map((word) => word[0].toUpperCase() + word.slice(1))
+      .join(" ") || "Study Topic"
+  );
+}
+
+function buildDeterministicMindmap(summary) {
+  const words = summary
+    .replace(/\n+/g, " ")
+    .split(/\s+/)
+    .filter((word) => word.length > 3)
+    .slice(0, 8);
+
+  const topic = extractMindmapTopic(summary);
+  const conceptA = words[0] || "Core Idea";
+  const conceptB = words[1] || "Key Detail";
+  const conceptC = words[2] || "Important Fact";
+  const conceptD = words[3] || "Example";
+  const conceptE = words[4] || "Application";
+  const conceptF = words[5] || "Review";
+
+  return `mindmap
+  root((${topic}))
+    Core Idea
+      ${conceptA}
+      ${conceptB}
+    Key Details
+      ${conceptC}
+      ${conceptD}
+    Practice
+      ${conceptE}
+      ${conceptF}`;
+}
+
+function normalizeMindmapResponse(value, summary) {
+  const raw =
+    typeof value === "string"
+      ? value
+      : typeof value === "object" && value?.mindmap
+        ? value.mindmap
+        : "";
+
+  if (isValidMindmapSyntax(raw)) {
+    return raw.trim();
+  }
+
+  return buildDeterministicMindmap(summary);
 }
 
 /**
@@ -639,18 +732,10 @@ ${summaryResult.summary}`;
         ? actionPlan.value?.tasks || getMockTasks(summaryResult.summary)
         : getMockTasks(summaryResult.summary);
 
-    let mindmapData = "";
-    if (mindmapResult.status === "fulfilled" && mindmapResult.value) {
-      const v = mindmapResult.value;
-      mindmapData =
-        typeof v === "object" && v.mindmap
-          ? v.mindmap
-          : typeof v === "string"
-            ? v
-            : getMockMindmap(text);
-    } else {
-      mindmapData = getMockMindmap(text);
-    }
+    const mindmapData =
+      mindmapResult.status === "fulfilled" && mindmapResult.value
+        ? normalizeMindmapResponse(mindmapResult.value, summaryResult.summary)
+        : buildDeterministicMindmap(summaryResult.summary);
 
     const finalResult = {
       ...summaryResult,
@@ -727,10 +812,7 @@ ${summary}`;
       getMockMindmapPayload(summary),
     );
 
-    const mindmapData =
-      typeof mindmapResult === "string"
-        ? mindmapResult
-        : mindmapResult?.mindmap || getMockMindmap(summary);
+    const mindmapData = normalizeMindmapResponse(mindmapResult, summary);
 
     const payload = { mindmapData };
     setCachedResult(cacheKey, payload);
