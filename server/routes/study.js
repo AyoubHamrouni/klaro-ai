@@ -42,27 +42,45 @@ const OPENROUTER_MODEL =
  * Maps provider names to timestamp of last successful usage
  */
 const providerCooldowns = new Map();
+const DEFAULT_PROVIDER_COOLDOWN_MS = 5000;
+const RATE_LIMIT_PROVIDER_COOLDOWN_MS = 30000;
 
 /**
  * Check if a provider is on cooldown to prevent API exhaustion
  *
  * @param {string} providerName - Name of the AI provider
- * @param {number} cooldownMs - Cooldown period in milliseconds (default: 5000)
  * @returns {boolean} True if provider is on cooldown
  */
-function isProviderOnCooldown(providerName, cooldownMs = 5000) {
-  const lastUsed = providerCooldowns.get(providerName);
-  if (!lastUsed) return false;
-  return Date.now() - lastUsed < cooldownMs;
+function isProviderOnCooldown(providerName) {
+  const expiresAt = providerCooldowns.get(providerName);
+  if (!expiresAt) return false;
+  return Date.now() < expiresAt;
 }
 
 /**
  * Mark a provider as recently used for rate limiting
  *
  * @param {string} providerName - Name of the AI provider
+ * @param {number} cooldownMs - Cooldown period in milliseconds
  */
-function markProviderUsed(providerName) {
-  providerCooldowns.set(providerName, Date.now());
+function markProviderUsed(
+  providerName,
+  cooldownMs = DEFAULT_PROVIDER_COOLDOWN_MS,
+) {
+  providerCooldowns.set(providerName, Date.now() + cooldownMs);
+}
+
+/**
+ * Determines whether an error indicates a rate limit or quota issue
+ *
+ * @param {Error} error - Error thrown by the AI provider
+ * @returns {boolean} True if the error looks like a rate limit / quota issue
+ */
+function isRateLimitError(error) {
+  const message = String(error?.message || "").toLowerCase();
+  return /429|quota|rate limit|exceeded|high capacity|capacity|too many requests/.test(
+    message,
+  );
 }
 
 /**
@@ -136,13 +154,13 @@ async function callAIWithFallback(
     },
   ];
 
-  // Shuffle providers to distribute load and avoid exhausting single models
-  const shuffledProviders = [...providers].sort(() => Math.random() - 0.5);
+  // Preserve a primary-first fallback order with retry and adaptive cooldowns
+  const executionOrder = [...providers];
+  let lastError = null;
 
-  for (const provider of shuffledProviders) {
+  for (const provider of executionOrder) {
     if (!provider.key) continue;
 
-    // Skip providers on cooldown to distribute load
     if (isProviderOnCooldown(provider.name)) {
       console.log(`[AI] ⏳ ${provider.name} on cooldown, skipping...`);
       continue;
@@ -168,7 +186,6 @@ async function callAIWithFallback(
             userPrompt,
             provider.model,
           );
-          // Auto-parse JSON if string was returned from OpenRouter
           if (typeof result === "string") {
             try {
               result = JSON.parse(result);
@@ -186,20 +203,34 @@ async function callAIWithFallback(
           return result;
         }
       } catch (err) {
+        lastError = err;
+        const cooldownMs = isRateLimitError(err)
+          ? RATE_LIMIT_PROVIDER_COOLDOWN_MS
+          : DEFAULT_PROVIDER_COOLDOWN_MS;
+        markProviderUsed(provider.name, cooldownMs);
         console.warn(
-          `[AI] ⚠️ ${provider.name} attempt ${attempt} failed:`,
-          err.message,
+          `[AI] ⚠️ ${provider.name} attempt ${attempt} failed: ${err.message}. Cooling down for ${cooldownMs}ms`,
         );
-        // Small delay before retry
+        if (isRateLimitError(err)) {
+          console.warn(
+            `[AI] ⚠️ ${provider.name} appears rate-limited or at capacity. Switching to next provider...`,
+          );
+        }
         if (attempt < 2) await new Promise((r) => setTimeout(r, 1000));
+        if (attempt === 2) break;
       }
     }
   }
 
-  // Hackathon Demo: Return mock data if all AI providers fail
   if (mockFallback) {
     console.log("[AI] 🔄 All providers failed, using mock data for demo");
     return mockFallback;
+  }
+
+  if (lastError) {
+    throw new Error(
+      `Stability Interruption: ${lastError.message} Please try again in a few seconds.`,
+    );
   }
 
   throw new Error(
@@ -285,6 +316,55 @@ function getMockTasks(summary) {
     "Practice explaining the topic in your own words",
     "Apply the concepts to a real-world example",
   ];
+}
+
+/**
+ * Generate mock quiz data when AI providers are unavailable.
+ *
+ * @param {string} text - Input text for quiz generation
+ * @returns {Object} Mock quiz object with simple questions
+ */
+function getMockQuiz(text) {
+  const topic =
+    text.substring(0, 80).split(" ").slice(0, 5).join(" ") || "the topic";
+  return {
+    questions: [
+      {
+        question: `What is the main idea of ${topic}?`,
+        options: [
+          "A high-level summary",
+          "A detailed list of steps",
+          "A description of a different subject",
+          "A random unrelated statement",
+        ],
+        correctAnswerIndex: 0,
+        explanation: "The main idea summarizes the core topic of the text.",
+      },
+      {
+        question: "Which approach best helps you remember the material?",
+        options: [
+          "Practice and review regularly",
+          "Ignore it completely",
+          "Wait until the last minute",
+          "Copy it without understanding",
+        ],
+        correctAnswerIndex: 0,
+        explanation: "Regular practice and review reinforce learning.",
+      },
+    ],
+  };
+}
+
+/**
+ * Generate a fallback chat reply when AI providers are unavailable.
+ *
+ * @param {string} message - User message
+ * @returns {Object} Chat reply object
+ */
+function getMockChatReply(message) {
+  return {
+    reply: `Thanks for your question! I’m having trouble connecting to the study assistant right now, but here’s a quick tip: break your work into small steps and review one idea at a time.`,
+  };
 }
 
 // ──────────────────────────────────────────────
@@ -521,8 +601,16 @@ router.post("/decompose", async (req, res) => {
       items: { type: "STRING" },
     };
 
-    const result = await callAIWithFallback(systemPrompt, userPrompt, schema);
-    res.json({ tasks: result });
+    const result = await callAIWithFallback(
+      systemPrompt,
+      userPrompt,
+      schema,
+      getMockTasks(summary),
+    );
+    const tasks = Array.isArray(result)
+      ? result
+      : result.tasks || getMockTasks(summary);
+    res.json({ tasks });
   } catch (err) {
     console.error("[Decompose Error]:", err);
     res.status(500).json({ error: "Failed to decompose tasks" });
@@ -566,8 +654,15 @@ router.post("/generate-quiz", async (req, res) => {
       required: ["questions"],
     };
 
-    const result = await callAIWithFallback(systemPrompt, userPrompt, schema);
-    const questions = result.questions || result;
+    const result = await callAIWithFallback(
+      systemPrompt,
+      userPrompt,
+      schema,
+      getMockQuiz(text),
+    );
+    const questions = Array.isArray(result)
+      ? result
+      : result.questions || getMockQuiz(text).questions;
     res.json({ questions });
   } catch (err) {
     console.error("[Quiz Error]:", err);
@@ -606,7 +701,12 @@ router.post("/chat", async (req, res) => {
       required: ["reply"],
     };
 
-    const result = await callAIWithFallback(systemPrompt, userPrompt, schema);
+    const result = await callAIWithFallback(
+      systemPrompt,
+      userPrompt,
+      schema,
+      getMockChatReply(message),
+    );
     res.json(result);
   } catch (err) {
     console.error("[Chat Error]:", err);
