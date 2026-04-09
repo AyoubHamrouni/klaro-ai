@@ -63,6 +63,7 @@ export function AudioPlayer({ text, onProgressChange, onPlayingChange }: AudioPl
     if (isPlaying && audioRef.current) {
       audioRef.current.pause();
       setIsPlaying(false);
+      onPlayingChange?.(false);
       return;
     }
 
@@ -76,19 +77,24 @@ export function AudioPlayer({ text, onProgressChange, onPlayingChange }: AudioPl
       audioRef.current = new Audio(url);
       audioRef.current.addEventListener('timeupdate', () => {
         if (audioRef.current) {
-          setProgress((audioRef.current.currentTime / audioRef.current.duration) * 100 || 0);
+          const p = (audioRef.current.currentTime / audioRef.current.duration) * 100 || 0;
+          setProgress(p);
+          onProgressChange?.(p);
         }
       });
       audioRef.current.addEventListener('ended', () => {
         setIsPlaying(false);
         setProgress(0);
+        onPlayingChange?.(false);
+        onProgressChange?.(0);
       });
     }
 
     audioRef.current.playbackRate = speed;
     await audioRef.current.play();
     setIsPlaying(true);
-  }, [isPlaying, audioUrl, fetchAudio, speed]);
+    onPlayingChange?.(true);
+  }, [isPlaying, audioUrl, fetchAudio, speed, onProgressChange, onPlayingChange]);
 
   useEffect(() => {
     if (audioRef.current) {
