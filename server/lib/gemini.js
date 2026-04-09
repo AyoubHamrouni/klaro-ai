@@ -33,10 +33,14 @@ export async function generateGeminiContent(
   }
 
   const url = `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${apiKey}`;
+  const controller = new AbortController();
+  const timeoutMs = 25000;
+  const timeoutId = setTimeout(() => controller.abort(), timeoutMs);
 
   try {
     const response = await fetch(url, {
       method: "POST",
+      signal: controller.signal,
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
         system_instruction: { parts: [{ text: systemInstruction }] },
@@ -71,9 +75,14 @@ export async function generateGeminiContent(
 
     return parsedResponse;
   } catch (error) {
+    if (error.name === "AbortError") {
+      throw new Error("Gemini API request timed out");
+    }
     if (error.name === "SyntaxError") {
       throw new Error("Failed to parse JSON response from Gemini API");
     }
     throw error;
+  } finally {
+    clearTimeout(timeoutId);
   }
 }

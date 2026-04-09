@@ -1,4 +1,4 @@
-import { useState, useRef } from "react";
+import { useEffect, useState, useRef } from "react";
 import { StudyChat } from "../components/StudyChat";
 import { TextInput } from "../components/TextInput";
 import { ResultsTabs, SummaryResult } from "../components/ResultsTabs";
@@ -28,6 +28,7 @@ import { Button } from "@/components/ui/button";
 export default function Index() {
   const [result, setResult] = useState<SummaryResult | null>(null);
   const [isLoading, setIsLoading] = useState(false);
+  const [isMindmapLoading, setIsMindmapLoading] = useState(false);
   const [originalWordCount, setOriginalWordCount] = useState(0);
   const [historyCurrentId, setHistoryCurrentId] = useState<
     string | undefined
@@ -41,17 +42,20 @@ export default function Index() {
   const [practiceMode, setPracticeMode] = useState<"quiz" | "flashcards">(
     "quiz",
   );
+  const [mindmapRequestedFor, setMindmapRequestedFor] = useState("");
 
   const resultsRef = useRef<HTMLDivElement>(null);
 
   const handleSummarize = async (text: string) => {
     setIsLoading(true);
     setResult(null);
+    setIsMindmapLoading(false);
+    setMindmapRequestedFor("");
     setOriginalWordCount(text.split(/\s+/).length);
 
     try {
       const response = await fetch(
-        `${import.meta.env.VITE_API_URL}/study-bundle`,
+        `${import.meta.env.VITE_API_URL}/summarize`,
         {
           method: "POST",
           headers: { "Content-Type": "application/json" },
@@ -65,6 +69,7 @@ export default function Index() {
       }
       const data = await response.json();
       setResult(data);
+      setDashboardView("study");
 
       const historyItem = {
         id: crypto.randomUUID(),
@@ -81,8 +86,6 @@ export default function Index() {
         JSON.stringify([historyItem, ...history]),
       );
       window.dispatchEvent(new Event("storage-update"));
-
-      setDashboardView("study");
     } catch (error) {
       console.error(error);
       toast({
@@ -94,6 +97,81 @@ export default function Index() {
       setIsLoading(false);
     }
   };
+
+  useEffect(() => {
+    const fetchMindmap = async () => {
+      if (
+        !result ||
+        result.mindmapData ||
+        isMindmapLoading ||
+        mindmapRequestedFor === result.summary ||
+        dashboardView !== "visuals"
+      ) {
+        return;
+      }
+
+      setIsMindmapLoading(true);
+      setMindmapRequestedFor(result.summary);
+
+      try {
+        const response = await fetch(
+          `${import.meta.env.VITE_API_URL}/mindmap`,
+          {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ summary: result.summary }),
+          },
+        );
+
+        if (!response.ok) {
+          throw new Error("Failed to generate mind map");
+        }
+
+        const data = await response.json();
+        const mindmapData = data.mindmapData || data.mindmap || "";
+
+        if (mindmapData) {
+          setResult((prev) => (prev ? { ...prev, mindmapData } : prev));
+
+          if (historyCurrentId) {
+            const saved = localStorage.getItem("study-history");
+            if (saved) {
+              try {
+                const history = JSON.parse(saved) as Array<{
+                  id: string;
+                  result: SummaryResult;
+                }>;
+                const updated = history.map((item) =>
+                  item.id === historyCurrentId
+                    ? {
+                        ...item,
+                        result: { ...item.result, mindmapData },
+                      }
+                    : item,
+                );
+                localStorage.setItem("study-history", JSON.stringify(updated));
+                window.dispatchEvent(new Event("storage-update"));
+              } catch {
+                // Ignore malformed history data and keep the live result updated.
+              }
+            }
+          }
+        }
+      } catch (error) {
+        console.error(error);
+      } finally {
+        setIsMindmapLoading(false);
+      }
+    };
+
+    fetchMindmap();
+  }, [
+    dashboardView,
+    historyCurrentId,
+    isMindmapLoading,
+    mindmapRequestedFor,
+    result,
+  ]);
 
   const handleHistorySelect = (item: {
     result: SummaryResult;
@@ -112,6 +190,8 @@ export default function Index() {
     setHistoryCurrentId(undefined);
     setFocusMode(false);
     setShowRuler(false);
+    setMindmapRequestedFor("");
+    setIsMindmapLoading(false);
   };
 
   return (
@@ -339,6 +419,18 @@ export default function Index() {
                             </h2>
                             {result?.mindmapData ? (
                               <MindMap mindmapData={result.mindmapData} />
+                            ) : isMindmapLoading ? (
+                              <div className="glass-card rounded-[2.5rem] p-10 border-white/10 text-center text-muted-foreground min-h-[420px] flex items-center justify-center">
+                                <div className="space-y-3">
+                                  <div className="mx-auto h-10 w-10 rounded-full border-2 border-primary border-t-transparent animate-spin" />
+                                  <p className="font-bold">
+                                    Building mind map...
+                                  </p>
+                                  <p className="text-xs opacity-60">
+                                    The summary is ready. Visuals are loading in the background.
+                                  </p>
+                                </div>
+                              </div>
                             ) : (
                               <div className="glass-card rounded-[2.5rem] p-10 border-white/10 text-center text-muted-foreground">
                                 <Map className="w-10 h-10 mx-auto mb-3 opacity-20" />

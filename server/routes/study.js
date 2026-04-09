@@ -42,8 +42,10 @@ const OPENROUTER_MODEL =
  * Maps provider names to timestamp of last successful usage
  */
 const providerCooldowns = new Map();
+const providerFamilyCooldowns = new Map();
 const DEFAULT_PROVIDER_COOLDOWN_MS = 5000;
 const RATE_LIMIT_PROVIDER_COOLDOWN_MS = 30000;
+const AUTH_ERROR_PROVIDER_COOLDOWN_MS = 1000 * 60 * 60;
 
 /**
  * Check if a provider is on cooldown to prevent API exhaustion
@@ -53,6 +55,12 @@ const RATE_LIMIT_PROVIDER_COOLDOWN_MS = 30000;
  */
 function isProviderOnCooldown(providerName) {
   const expiresAt = providerCooldowns.get(providerName);
+  if (!expiresAt) return false;
+  return Date.now() < expiresAt;
+}
+
+function isProviderFamilyOnCooldown(familyName) {
+  const expiresAt = providerFamilyCooldowns.get(familyName);
   if (!expiresAt) return false;
   return Date.now() < expiresAt;
 }
@@ -70,6 +78,13 @@ function markProviderUsed(
   providerCooldowns.set(providerName, Date.now() + cooldownMs);
 }
 
+function markProviderFamilyUsed(
+  familyName,
+  cooldownMs = DEFAULT_PROVIDER_COOLDOWN_MS,
+) {
+  providerFamilyCooldowns.set(familyName, Date.now() + cooldownMs);
+}
+
 /**
  * Determines whether an error indicates a rate limit or quota issue
  *
@@ -80,6 +95,26 @@ function isRateLimitError(error) {
   const message = String(error?.message || "").toLowerCase();
   return /429|quota|rate limit|exceeded|high capacity|capacity|too many requests/.test(
     message,
+  );
+}
+
+function isAuthenticationError(error) {
+  const message = String(error?.message || "").toLowerCase();
+  return (
+    /401|403|unauthorized|forbidden|invalid api key|api key is required|authentication/.test(
+      message,
+    ) ||
+    error?.status === 401 ||
+    error?.status === 403
+  );
+}
+
+function isRetryableError(error) {
+  const message = String(error?.message || "").toLowerCase();
+  return (
+    /timeout|timed out|network|fetch failed|econnreset|etimedout|aborterror/.test(
+      message,
+    ) || error?.name === "AbortError"
   );
 }
 
@@ -161,48 +196,56 @@ async function callAIWithFallback(
   const providers = [
     {
       name: "Gemini",
+      family: "Gemini",
       key: GEMINI_API_KEY,
       model: GEMINI_MODEL,
       fn: generateGeminiContent,
     },
     {
       name: "OpenRouter-Primary",
+      family: "OpenRouter",
       key: OPENROUTER_API_KEY,
       model: OPENROUTER_MODEL,
       fn: generateOpenRouterContent,
     },
     {
       name: "OpenRouter-WizardLM",
+      family: "OpenRouter",
       key: OPENROUTER_API_KEY,
       model: "microsoft/wizardlm-2-8x22b:free",
       fn: generateOpenRouterContent,
     },
     {
       name: "OpenRouter-Llama",
+      family: "OpenRouter",
       key: OPENROUTER_API_KEY,
       model: "meta-llama/llama-3.1-8b-instruct:free",
       fn: generateOpenRouterContent,
     },
     {
       name: "OpenRouter-Gemma4-26B",
+      family: "OpenRouter",
       key: OPENROUTER_API_KEY,
       model: "google/gemma-4-26b-a4b-it:free",
       fn: generateOpenRouterContent,
     },
     {
       name: "OpenRouter-Gemma4-31B",
+      family: "OpenRouter",
       key: OPENROUTER_API_KEY,
       model: "google/gemma-4-31b-it:free",
       fn: generateOpenRouterContent,
     },
     {
       name: "OpenRouter-Nemotron",
+      family: "OpenRouter",
       key: OPENROUTER_API_KEY,
       model: "nvidia/nemotron-3-super-120b-a12b:free",
       fn: generateOpenRouterContent,
     },
     {
       name: "OpenRouter-Minimax",
+      family: "OpenRouter",
       key: OPENROUTER_API_KEY,
       model: "minimax/minimax-m2.5:free",
       fn: generateOpenRouterContent,
@@ -215,13 +258,20 @@ async function callAIWithFallback(
 
   for (const provider of executionOrder) {
     if (!provider.key) continue;
+    if (provider.family && isProviderFamilyOnCooldown(provider.family)) {
+      console.log(
+        `[AI] ⏳ ${provider.family} family on cooldown, skipping ${provider.name}...`,
+      );
+      continue;
+    }
 
     if (isProviderOnCooldown(provider.name)) {
       console.log(`[AI] ⏳ ${provider.name} on cooldown, skipping...`);
       continue;
     }
 
-    for (let attempt = 1; attempt <= 2; attempt++) {
+    const maxAttempts = 2;
+    for (let attempt = 1; attempt <= maxAttempts; attempt++) {
       try {
         console.log(`[AI] [${provider.name}] Attempt ${attempt}...`);
 
@@ -266,20 +316,42 @@ async function callAIWithFallback(
         }
       } catch (err) {
         lastError = err;
-        const cooldownMs = isRateLimitError(err)
+        const authError = isAuthenticationError(err);
+        const rateLimitError = isRateLimitError(err);
+        const retryableError = isRetryableError(err);
+        const cooldownMs = rateLimitError
           ? RATE_LIMIT_PROVIDER_COOLDOWN_MS
-          : DEFAULT_PROVIDER_COOLDOWN_MS;
+          : authError
+            ? AUTH_ERROR_PROVIDER_COOLDOWN_MS
+            : DEFAULT_PROVIDER_COOLDOWN_MS;
         markProviderUsed(provider.name, cooldownMs);
+        if (provider.family && (authError || rateLimitError)) {
+          markProviderFamilyUsed(provider.family, cooldownMs);
+        }
         console.warn(
           `[AI] ⚠️ ${provider.name} attempt ${attempt} failed: ${err.message}. Cooling down for ${cooldownMs}ms`,
         );
-        if (isRateLimitError(err)) {
+
+        if (authError) {
+          console.warn(
+            `[AI] ⚠️ ${provider.name} rejected the API key. Skipping the rest of the ${provider.family || provider.name} providers for this request.`,
+          );
+          break;
+        }
+
+        if (rateLimitError) {
           console.warn(
             `[AI] ⚠️ ${provider.name} appears rate-limited or at capacity. Switching to next provider...`,
           );
+          break;
         }
-        if (attempt < 2) await new Promise((r) => setTimeout(r, 1000));
-        if (attempt === 2) break;
+
+        if (!retryableError) {
+          break;
+        }
+
+        if (attempt < maxAttempts) await new Promise((r) => setTimeout(r, 1000));
+        if (attempt === maxAttempts) break;
       }
     }
   }
@@ -359,6 +431,16 @@ function getMockMindmap(text) {
       Study Methods
         Practice
         Review`;
+}
+
+/**
+ * Generate a mind map from summary text for demo reliability
+ *
+ * @param {string} summary - Summary text to visualize
+ * @returns {Object} Mindmap payload
+ */
+function getMockMindmapPayload(summary) {
+  return { mindmap: getMockMindmap(summary) };
 }
 
 /**
@@ -582,6 +664,79 @@ ${summaryResult.summary}`;
     res.json(finalResult);
   } catch (err) {
     console.error("[Study Bundle Error]:", err);
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// ──────────────────────────────────────────────
+// Endpoint: Mind Map Generation
+// ──────────────────────────────────────────────
+
+/**
+ * POST /mindmap
+ * Generate a Mermaid mind map from a summary
+ *
+ * @param {string} summary - Summary text to visualize
+ * @returns {Object} Mindmap data payload
+ */
+router.post("/mindmap", async (req, res) => {
+  try {
+    const { summary } = req.body;
+    if (!summary) {
+      return res.status(400).json({ error: "Summary is required" });
+    }
+
+    const cacheKey = `mindmap:${summary.substring(0, 120)}:${summary.length}`;
+    const cached = getCachedResult(cacheKey);
+    if (cached) {
+      console.log("[Cache] ⚡ Serving mindmap from cache.");
+      return res.json(cached);
+    }
+
+    const mindmapPrompt = `Create a mind map for the following study summary using Mermaid.js mindmap syntax.
+Rules:
+- Start with: mindmap
+- Use 2-space indentation for hierarchy
+- Root node should be the main topic (1-3 words) wrapped in (( ))
+- Max 3 levels of depth
+- Each node: 2-5 words MAX, no special characters except spaces
+- 4-8 branches from root
+- Return ONLY the raw Mermaid mindmap syntax, NO code fences, NO explanation
+
+Example format:
+mindmap
+  root((Biology))
+    Cell Structure
+      Cell Membrane
+      Nucleus
+    Metabolism
+      Glycolysis
+      Photosynthesis
+
+Summary:
+${summary}`;
+
+    const mindmapResult = await callAIWithFallback(
+      "You are a visual learning expert. Generate clean Mermaid.js mindmap syntax only.",
+      mindmapPrompt,
+      {
+        type: "OBJECT",
+        properties: { mindmap: { type: "STRING" } },
+        required: ["mindmap"],
+      },
+      getMockMindmapPayload(summary),
+    );
+
+    const mindmapData =
+      typeof mindmapResult === "string"
+        ? mindmapResult
+        : mindmapResult?.mindmap || getMockMindmap(summary);
+
+    const payload = { mindmapData };
+    setCachedResult(cacheKey, payload);
+    res.json(payload);
+  } catch (err) {
+    console.error("[Mindmap Error]:", err);
     res.status(500).json({ error: err.message });
   }
 });

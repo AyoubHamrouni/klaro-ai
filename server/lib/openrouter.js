@@ -31,10 +31,14 @@ export async function generateOpenRouterContent(
   }
 
   const url = "https://openrouter.ai/api/v1/chat/completions";
+  const controller = new AbortController();
+  const timeoutMs = 25000;
+  const timeoutId = setTimeout(() => controller.abort(), timeoutMs);
 
   try {
     const response = await fetch(url, {
       method: "POST",
+      signal: controller.signal,
       headers: {
         Authorization: `Bearer ${apiKey}`,
         "HTTP-Referer": "https://github.com/AyoubHamrouni/lumina-os",
@@ -81,9 +85,14 @@ export async function generateOpenRouterContent(
       throw new Error("Invalid JSON response from OpenRouter API");
     }
   } catch (error) {
+    if (error.name === "AbortError") {
+      throw new Error("OpenRouter API request timed out");
+    }
     if (error.name === "SyntaxError") {
       throw new Error("Failed to parse JSON response from OpenRouter API");
     }
     throw error;
+  } finally {
+    clearTimeout(timeoutId);
   }
 }
