@@ -1,0 +1,38 @@
+{
+  "name": "lumina-api",
+  "version": "1.0.0",
+  "description": "Atomic Orchestration API for Lumina OS - Multi-Model AI Study Assistant",
+  "main": "index.js",
+  "type": "module",
+  "author": "Ayoub Hamrouni",
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/AyoubHamrouni/lumina-os"
+  },
+  "keywords": [
+    "ai",
+    "api",
+    "education",
+    "study-tools",
+    "gemini",
+    "openrouter",
+    "elevenlabs",
+    "express",
+    "hackathon"
+  ],
+  "engines": {
+    "node": ">=20.0.0"
+  },
+  "scripts": {
+    "start": "node index.js",
+    "fix-port": "fuser -k 3001/tcp || true",
+    "dev": "npm run fix-port && node --watch index.js"
+  },
+  "dependencies": {
+    "express": "^4.18.2",
+    "cors": "^2.8.5",
+    "node-fetch": "^3.3.2",
+    "dotenv": "^16.3.1"
+  }
+}

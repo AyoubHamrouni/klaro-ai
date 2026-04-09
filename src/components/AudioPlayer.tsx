@@ -1,10 +1,10 @@
-import { useState, useRef, useCallback, useEffect } from 'react';
-import { Play, Pause, Volume2, Loader2 } from 'lucide-react';
-import { Button } from '@/components/ui/button';
-import { Card, CardContent } from '@/components/ui/card';
-import { Slider } from '@/components/ui/slider';
-import { motion } from 'framer-motion';
-import { toast } from '@/hooks/use-toast';
+import { useState, useRef, useCallback, useEffect } from "react";
+import { Play, Pause, Volume2, Loader2 } from "lucide-react";
+import { Button } from "@/components/ui/button";
+import { Card, CardContent } from "@/components/ui/card";
+import { Slider } from "@/components/ui/slider";
+import { motion } from "framer-motion";
+import { toast } from "@/hooks/use-toast";
 
 interface AudioPlayerProps {
   text: string;
@@ -12,7 +12,11 @@ interface AudioPlayerProps {
   onPlayingChange?: (playing: boolean) => void;
 }
 
-export function AudioPlayer({ text, onProgressChange, onPlayingChange }: AudioPlayerProps) {
+export function AudioPlayer({
+  text,
+  onProgressChange,
+  onPlayingChange,
+}: AudioPlayerProps) {
   const [isPlaying, setIsPlaying] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
   const [progress, setProgress] = useState(0);
@@ -25,34 +29,44 @@ export function AudioPlayer({ text, onProgressChange, onPlayingChange }: AudioPl
     setIsLoading(true);
     try {
       const response = await fetch(
-        `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/text-to-speech`,
+        `${import.meta.env.VITE_API_URL}/text-to-speech`,
         {
-          method: 'POST',
+          method: "POST",
           headers: {
-            'Content-Type': 'application/json',
-            apikey: import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY,
-            Authorization: `Bearer ${import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY}`,
+            "Content-Type": "application/json",
           },
           body: JSON.stringify({ text }),
-        }
+        },
       );
 
       if (response.status === 429) {
-        toast({ variant: 'destructive', title: 'Rate limited', description: 'Too many requests. Please wait a moment.' });
+        toast({
+          variant: "destructive",
+          title: "Rate limited",
+          description: "Too many requests. Please wait a moment.",
+        });
         return null;
       }
       if (response.status === 402) {
-        toast({ variant: 'destructive', title: 'Credits needed', description: 'Please add credits to continue using TTS.' });
+        toast({
+          variant: "destructive",
+          title: "Credits needed",
+          description: "Please add credits to continue using TTS.",
+        });
         return null;
       }
-      if (!response.ok) throw new Error('TTS failed');
+      if (!response.ok) throw new Error("TTS failed");
 
       const blob = await response.blob();
       const url = URL.createObjectURL(blob);
       setAudioUrl(url);
       return url;
     } catch {
-      toast({ variant: 'destructive', title: 'Audio Error', description: 'Failed to generate audio. Please try again.' });
+      toast({
+        variant: "destructive",
+        title: "Audio Error",
+        description: "Failed to generate audio. Please try again.",
+      });
       return null;
     } finally {
       setIsLoading(false);
@@ -75,14 +89,16 @@ export function AudioPlayer({ text, onProgressChange, onPlayingChange }: AudioPl
 
     if (!audioRef.current) {
       audioRef.current = new Audio(url);
-      audioRef.current.addEventListener('timeupdate', () => {
+      audioRef.current.addEventListener("timeupdate", () => {
         if (audioRef.current) {
-          const p = (audioRef.current.currentTime / audioRef.current.duration) * 100 || 0;
+          const p =
+            (audioRef.current.currentTime / audioRef.current.duration) * 100 ||
+            0;
           setProgress(p);
           onProgressChange?.(p);
         }
       });
-      audioRef.current.addEventListener('ended', () => {
+      audioRef.current.addEventListener("ended", () => {
         setIsPlaying(false);
         setProgress(0);
         onPlayingChange?.(false);
@@ -94,7 +110,14 @@ export function AudioPlayer({ text, onProgressChange, onPlayingChange }: AudioPl
     await audioRef.current.play();
     setIsPlaying(true);
     onPlayingChange?.(true);
-  }, [isPlaying, audioUrl, fetchAudio, speed, onProgressChange, onPlayingChange]);
+  }, [
+    isPlaying,
+    audioUrl,
+    fetchAudio,
+    speed,
+    onProgressChange,
+    onPlayingChange,
+  ]);
 
   useEffect(() => {
     if (audioRef.current) {
@@ -150,7 +173,8 @@ export function AudioPlayer({ text, onProgressChange, onPlayingChange }: AudioPl
                 className="cursor-pointer"
                 onValueChange={([val]) => {
                   if (audioRef.current && audioRef.current.duration) {
-                    audioRef.current.currentTime = (val / 100) * audioRef.current.duration;
+                    audioRef.current.currentTime =
+                      (val / 100) * audioRef.current.duration;
                     setProgress(val);
                   }
                 }}
@@ -161,7 +185,7 @@ export function AudioPlayer({ text, onProgressChange, onPlayingChange }: AudioPl
               {speeds.map((s) => (
                 <Button
                   key={s}
-                  variant={speed === s ? 'default' : 'ghost'}
+                  variant={speed === s ? "default" : "ghost"}
                   size="sm"
                   className="text-xs px-2 h-7"
                   onClick={() => setSpeed(s)}

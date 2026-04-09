@@ -12,17 +12,19 @@
     "moduleDetection": "force",
     "moduleResolution": "bundler",
     "noEmit": true,
-    "noFallthroughCasesInSwitch": false,
-    "noImplicitAny": false,
-    "noUnusedLocals": false,
-    "noUnusedParameters": false,
+    "noFallthroughCasesInSwitch": true,
+    "noImplicitAny": false, // Keep lenient for hackathon speed
+    "noUnusedLocals": false, // Keep lenient for hackathon speed
+    "noUnusedParameters": false, // Keep lenient for hackathon speed
+    "noImplicitReturns": true,
+    "noUncheckedIndexedAccess": false, // Keep lenient
     "paths": {
       "@/*": [
         "./src/*"
       ]
     },
     "skipLibCheck": true,
-    "strict": false,
+    "strict": false, // Keep lenient for hackathon
     "target": "ES2020",
     "types": [
       "vitest/globals"

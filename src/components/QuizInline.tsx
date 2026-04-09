@@ -1,10 +1,16 @@
-import { useState, useEffect } from 'react';
-import { Button } from '@/components/ui/button';
-import { Card } from '@/components/ui/card';
-import { Progress } from '@/components/ui/progress';
-import { Loader2, CheckCircle2, XCircle, Trophy, Flame, PartyPopper } from 'lucide-react';
-import { supabase } from '@/integrations/supabase/client';
-import { motion, AnimatePresence } from 'framer-motion';
+import { useState, useEffect } from "react";
+import { Button } from "@/components/ui/button";
+import { Card } from "@/components/ui/card";
+import { Progress } from "@/components/ui/progress";
+import {
+  Loader2,
+  CheckCircle2,
+  XCircle,
+  Trophy,
+  Flame,
+  PartyPopper,
+} from "lucide-react";
+import { motion, AnimatePresence } from "framer-motion";
 
 interface Question {
   question: string;
@@ -18,14 +24,19 @@ interface QuizInlineProps {
 }
 
 const encouragements = [
-  "🔥 On fire!", "💪 Great job!", "🎯 Nailed it!", "⭐ Brilliant!",
-  "🧠 Big brain!", "✨ Amazing!", "🚀 Unstoppable!"
+  "🔥 On fire!",
+  "💪 Great job!",
+  "🎯 Nailed it!",
+  "⭐ Brilliant!",
+  "🧠 Big brain!",
+  "✨ Amazing!",
+  "🚀 Unstoppable!",
 ];
 
 export function QuizInline({ text }: QuizInlineProps) {
   const [questions, setQuestions] = useState<Question[]>([]);
   const [isLoading, setIsLoading] = useState(false);
-  const [error, setError] = useState('');
+  const [error, setError] = useState("");
   const [currentIndex, setCurrentIndex] = useState(0);
   const [score, setScore] = useState(0);
   const [streak, setStreak] = useState(0);
@@ -38,32 +49,50 @@ export function QuizInline({ text }: QuizInlineProps) {
 
   const loadQuiz = async () => {
     setIsLoading(true);
-    setError('');
+    setError("");
     try {
-      const { data, error } = await supabase.functions.invoke('generate-quiz', { body: { text } });
-      if (error) throw error;
-      if (data?.error) throw new Error(data.error);
+      const response = await fetch(
+        `${import.meta.env.VITE_API_URL}/generate-quiz`,
+        {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ text }),
+        },
+      );
+
+      if (!response.ok) {
+        const errorData = await response.json().catch(() => ({}));
+        throw new Error(errorData.error || "Failed to generate quiz");
+      }
+
+      const data = await response.json();
       setQuestions(data.questions || []);
-    } catch (err: any) {
-      setError(err.message || 'Failed to generate quiz.');
+    } catch (err) {
+      const errorMessage =
+        err instanceof Error ? err.message : "Failed to generate quiz.";
+      setError(errorMessage);
     } finally {
       setIsLoading(false);
     }
   };
 
   useEffect(() => {
-    if (questions.length === 0 && !isLoading && !error) loadQuiz();
-  }, []);
+    if (questions.length === 0 && !isLoading && !error) {
+      loadQuiz();
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [text]);
 
   const handleCheck = () => {
     if (selectedOption === null) return;
     setIsChecking(true);
-    const isCorrect = selectedOption === questions[currentIndex].correctAnswerIndex;
+    const isCorrect =
+      selectedOption === questions[currentIndex].correctAnswerIndex;
     if (isCorrect) {
-      const newScore = score + (10 * (streak + 1));
+      const newScore = score + 10 * (streak + 1);
       setScore(newScore);
-      setStreak(s => s + 1);
-      setBestStreak(b => Math.max(b, streak + 1));
+      setStreak((s) => s + 1);
+      setBestStreak((b) => Math.max(b, streak + 1));
       setShowScorePopup(true);
       setTimeout(() => setShowScorePopup(false), 1200);
     } else {
@@ -73,7 +102,7 @@ export function QuizInline({ text }: QuizInlineProps) {
 
   const handleNext = () => {
     if (currentIndex < questions.length - 1) {
-      setCurrentIndex(i => i + 1);
+      setCurrentIndex((i) => i + 1);
       setSelectedOption(null);
       setIsChecking(false);
     } else {
@@ -84,7 +113,6 @@ export function QuizInline({ text }: QuizInlineProps) {
   };
 
   const handleRetry = () => {
-    setQuestions([]);
     setCurrentIndex(0);
     setScore(0);
     setStreak(0);
@@ -94,13 +122,17 @@ export function QuizInline({ text }: QuizInlineProps) {
     setHasFinished(false);
   };
 
-  const progressPercent = questions.length ? ((currentIndex + 1) / questions.length) * 100 : 0;
+  const progressPercent = questions.length
+    ? ((currentIndex + 1) / questions.length) * 100
+    : 0;
 
   if (isLoading) {
     return (
       <div className="flex flex-col items-center justify-center p-12 space-y-4">
         <Loader2 className="w-10 h-10 animate-spin text-primary" />
-        <p className="text-muted-foreground animate-pulse font-medium">Generating quiz questions...</p>
+        <p className="text-muted-foreground animate-pulse font-medium">
+          Generating quiz questions...
+        </p>
       </div>
     );
   }
@@ -109,7 +141,9 @@ export function QuizInline({ text }: QuizInlineProps) {
     return (
       <div className="bg-destructive/10 text-destructive p-4 rounded-lg flex flex-col gap-3">
         <p className="font-medium">{error}</p>
-        <Button variant="outline" onClick={loadQuiz} className="w-fit">Try Again</Button>
+        <Button variant="outline" onClick={loadQuiz} className="w-fit">
+          Try Again
+        </Button>
       </div>
     );
   }
@@ -131,7 +165,12 @@ export function QuizInline({ text }: QuizInlineProps) {
                 style={{
                   left: `${Math.random() * 100}%`,
                   animationDelay: `${Math.random() * 0.5}s`,
-                  backgroundColor: ['hsl(var(--primary))', 'hsl(var(--accent))', 'hsl(var(--warm))', 'hsl(var(--success))'][i % 4],
+                  backgroundColor: [
+                    "hsl(var(--primary))",
+                    "hsl(var(--accent))",
+                    "hsl(var(--warm))",
+                    "hsl(var(--success))",
+                  ][i % 4],
                 }}
               />
             ))}
@@ -207,26 +246,37 @@ export function QuizInline({ text }: QuizInlineProps) {
           {q.options.map((opt, i) => {
             const isSelected = selectedOption === i;
             const isCorrect = i === q.correctAnswerIndex;
-            let cls = 'w-full justify-start h-auto p-4 text-left font-medium transition-all';
+            let cls =
+              "w-full justify-start h-auto p-4 text-left font-medium transition-all";
             if (isChecking) {
-              if (isCorrect) cls += ' bg-success/20 border-success';
-              else if (isSelected && !isCorrect) cls += ' bg-destructive/20 border-destructive';
-              else cls += ' opacity-50';
+              if (isCorrect) cls += " bg-success/20 border-success";
+              else if (isSelected && !isCorrect)
+                cls += " bg-destructive/20 border-destructive";
+              else cls += " opacity-50";
             } else if (isSelected) {
-              cls += ' bg-primary border-primary text-primary-foreground hover:bg-primary/90 hover:text-primary-foreground';
+              cls +=
+                " bg-primary border-primary text-primary-foreground hover:bg-primary/90 hover:text-primary-foreground";
             }
             return (
               <Button
                 key={i}
-                variant={isChecking ? 'outline' : isSelected ? 'default' : 'outline'}
+                variant={
+                  isChecking ? "outline" : isSelected ? "default" : "outline"
+                }
                 className={cls}
                 onClick={() => !isChecking && setSelectedOption(i)}
                 disabled={isChecking}
               >
                 <div className="flex items-center gap-3 w-full">
-                  <span className="flex-1 whitespace-pre-wrap font-dyslexic">{opt}</span>
-                  {isChecking && isCorrect && <CheckCircle2 className="w-5 h-5 text-success shrink-0" />}
-                  {isChecking && isSelected && !isCorrect && <XCircle className="w-5 h-5 text-destructive shrink-0" />}
+                  <span className="flex-1 whitespace-pre-wrap font-dyslexic">
+                    {opt}
+                  </span>
+                  {isChecking && isCorrect && (
+                    <CheckCircle2 className="w-5 h-5 text-success shrink-0" />
+                  )}
+                  {isChecking && isSelected && !isCorrect && (
+                    <XCircle className="w-5 h-5 text-destructive shrink-0" />
+                  )}
                 </div>
               </Button>
             );
@@ -241,28 +291,39 @@ export function QuizInline({ text }: QuizInlineProps) {
             animate={{ opacity: 1, y: 0 }}
             className={`p-4 rounded-lg ${
               selectedOption === q.correctAnswerIndex
-                ? 'bg-success/15 border border-success/20'
-                : 'bg-warm/15 border border-warm/20'
+                ? "bg-success/15 border border-success/20"
+                : "bg-warm/15 border border-warm/20"
             }`}
           >
             <p className="font-bold mb-1">
               {selectedOption === q.correctAnswerIndex
-                ? encouragements[Math.floor(Math.random() * encouragements.length)]
-                : 'Not quite!'}
+                ? encouragements[
+                    Math.floor(Math.random() * encouragements.length)
+                  ]
+                : "Not quite!"}
             </p>
-            <p className="text-sm opacity-90 leading-relaxed font-dyslexic">{q.explanation}</p>
+            <p className="text-sm opacity-90 leading-relaxed font-dyslexic">
+              {q.explanation}
+            </p>
           </motion.div>
         )}
       </AnimatePresence>
 
       <div className="flex justify-end">
         {!isChecking ? (
-          <Button size="lg" onClick={handleCheck} disabled={selectedOption === null} className="w-full sm:w-auto">
+          <Button
+            size="lg"
+            onClick={handleCheck}
+            disabled={selectedOption === null}
+            className="w-full sm:w-auto"
+          >
             Check Answer
           </Button>
         ) : (
           <Button size="lg" onClick={handleNext} className="w-full sm:w-auto">
-            {currentIndex < questions.length - 1 ? 'Next Question' : 'Finish Quiz'}
+            {currentIndex < questions.length - 1
+              ? "Next Question"
+              : "Finish Quiz"}
           </Button>
         )}
       </div>

@@ -3,6 +3,7 @@ import { Upload, FileText, Sparkles, AlertCircle } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
 import { Card, CardContent } from "@/components/ui/card";
+import { Badge } from "@/components/ui/badge";
 import { SAMPLE_TEXT } from "@/lib/sample-text";
 import { extractTextFromPDF, countWords } from "@/lib/pdf-parser";
 import { motion, AnimatePresence } from "framer-motion";
@@ -85,135 +86,145 @@ export function TextInput({ onSubmit, isLoading }: TextInputProps) {
 
   return (
     <motion.div
-      initial={{ opacity: 0, y: 20 }}
-      animate={{ opacity: 1, y: 0 }}
+      initial={{ opacity: 0, scale: 0.98 }}
+      animate={{ opacity: 1, scale: 1 }}
       transition={{ duration: 0.5 }}
+      className="glass-card rounded-[2rem] overflow-hidden"
     >
-      <Card className="border-2 border-dashed border-primary/20 bg-card/60 backdrop-blur-md shadow-xl hover:border-primary/40 transition-colors duration-300">
-        <CardContent className="p-6 space-y-4">
-          {/* Drop zone */}
-          <div
-            onDragOver={(e) => {
-              e.preventDefault();
-              setDragActive(true);
-            }}
-            onDragLeave={() => setDragActive(false)}
-            onDrop={handleDrop}
-            className={`relative transition-all duration-200 rounded-lg ${dragActive ? "ring-2 ring-primary bg-primary/5" : ""}`}
-          >
-            <Textarea
-              value={text}
-              onChange={(e) => handleTextChange(e.target.value)}
-              placeholder="Paste your text here, or drag & drop a PDF file..."
-              className="min-h-[200px] text-base leading-relaxed resize-y font-dyslexic bg-background/80"
-              disabled={isLoading}
-            />
-            <AnimatePresence>
-              {dragActive && (
-                <motion.div
-                  initial={{ opacity: 0 }}
-                  animate={{ opacity: 1 }}
-                  exit={{ opacity: 0 }}
-                  className="absolute inset-0 flex items-center justify-center bg-primary/10 rounded-lg border-2 border-primary"
-                >
-                  <div className="flex items-center gap-2 text-primary font-semibold text-lg">
-                    <Upload className="w-6 h-6" />
-                    Drop your PDF here
-                  </div>
-                </motion.div>
-              )}
-            </AnimatePresence>
-          </div>
-
-          {/* Word count & file info */}
-          <div className="flex items-center justify-between text-sm">
-            <div className="flex items-center gap-3">
-              {fileName && (
-                <span className="flex items-center gap-1 text-muted-foreground">
-                  <FileText className="w-4 h-4" />
-                  {fileName}
-                </span>
-              )}
-            </div>
-            <span
-              className={`font-medium ${isOverLimit ? "text-destructive" : "text-muted-foreground"}`}
-            >
-              {wordCount.toLocaleString()} / {MAX_WORDS.toLocaleString()} words
-            </span>
-          </div>
-
-          {/* Error message */}
+      <div className="p-6 md:p-8 space-y-6">
+        {/* Drop zone */}
+        <div
+          onDragOver={(e) => {
+            e.preventDefault();
+            setDragActive(true);
+          }}
+          onDragLeave={() => setDragActive(false)}
+          onDrop={handleDrop}
+          className={`relative transition-all duration-300 rounded-2xl overflow-hidden ${
+            dragActive
+              ? "ring-2 ring-primary ring-offset-4 ring-offset-background scale-[0.99]"
+              : ""
+          }`}
+        >
+          <Textarea
+            value={text}
+            onChange={(e) => handleTextChange(e.target.value)}
+            placeholder="Paste your source text here or drop a PDF..."
+            className="min-h-[250px] text-lg md:text-xl leading-relaxed resize-none font-dyslexic bg-white/5 border-white/10 focus:border-primary/50 focus:ring-primary/20 transition-all placeholder:text-muted-foreground/30 p-6"
+            disabled={isLoading}
+          />
           <AnimatePresence>
-            {error && (
+            {dragActive && (
               <motion.div
-                initial={{ opacity: 0, height: 0 }}
-                animate={{ opacity: 1, height: "auto" }}
-                exit={{ opacity: 0, height: 0 }}
-                className="flex items-center gap-2 text-destructive text-sm p-3 bg-destructive/10 rounded-lg"
+                initial={{ opacity: 0, backdropFilter: "blur(0px)" }}
+                animate={{ opacity: 1, backdropFilter: "blur(8px)" }}
+                exit={{ opacity: 0, backdropFilter: "blur(0px)" }}
+                className="absolute inset-0 flex flex-col items-center justify-center bg-primary/20 z-20"
               >
-                <AlertCircle className="w-4 h-4 flex-shrink-0" />
-                {error}
+                <div className="bg-white/10 p-6 rounded-full border border-white/20 mb-4 animate-bounce">
+                  <Upload className="w-10 h-10 text-white" />
+                </div>
+                <p className="text-white font-bold text-xl tracking-tight">
+                  Drop PDF to Import
+                </p>
               </motion.div>
             )}
           </AnimatePresence>
+        </div>
 
-          {/* Action buttons */}
-          <div className="flex flex-wrap gap-3 pt-2">
-            <motion.div whileHover={{ scale: 1.02 }} whileTap={{ scale: 0.98 }}>
-              <Button
-                onClick={handleSubmit}
-                disabled={isLoading || !text.trim() || isOverLimit}
-                size="lg"
-                className="font-semibold text-base px-8 shadow-lg shadow-primary/20 bg-gradient-to-r from-primary to-primary/90 hover:from-primary hover:to-primary"
-              >
-                <Sparkles className="w-5 h-5 mr-2" />
-                {isLoading ? "Summarizing..." : "Summarize"}
-              </Button>
-            </motion.div>
-
-            <motion.div whileHover={{ scale: 1.02 }} whileTap={{ scale: 0.98 }}>
-              <Button
-                variant="outline"
-                onClick={() => fileInputRef.current?.click()}
-                disabled={isLoading}
-                size="lg"
-                className="border-primary/20 hover:bg-primary/5 shadow-sm"
-              >
-                <Upload className="w-5 h-5 mr-2" />
-                Upload PDF
-              </Button>
-            </motion.div>
-
-            <motion.div whileHover={{ scale: 1.02 }} whileTap={{ scale: 0.98 }}>
-              <Button
+        {/* Word count & file info */}
+        <div className="flex flex-wrap items-center justify-between gap-4 px-2">
+          <div className="flex items-center gap-3">
+            {fileName ? (
+              <Badge
                 variant="secondary"
-                onClick={() => {
-                  setText(SAMPLE_TEXT);
-                  setError("");
-                  setFileName("demo-text.txt");
-                }}
-                disabled={isLoading}
-                size="lg"
-                className="shadow-sm hover:shadow-md transition-shadow"
+                className="bg-primary/10 text-primary border-primary/20 px-3 py-1 items-center gap-2"
               >
-                <FileText className="w-5 h-5 mr-2" />
-                Try Demo
-              </Button>
-            </motion.div>
-
-            <input
-              ref={fileInputRef}
-              type="file"
-              accept=".pdf"
-              className="hidden"
-              onChange={(e) => {
-                const file = e.target.files?.[0];
-                if (file) handleFileUpload(file);
-              }}
-            />
+                <FileText className="w-4 h-4" />
+                {fileName}
+              </Badge>
+            ) : (
+              <div className="flex items-center gap-2 text-muted-foreground/60 text-sm font-medium">
+                <Sparkles className="w-4 h-4" />
+                AI-Ready Input
+              </div>
+            )}
           </div>
-        </CardContent>
-      </Card>
+          <div
+            className={`text-sm font-bold flex items-center gap-2 ${isOverLimit ? "text-destructive" : "text-muted-foreground"}`}
+          >
+            <span className="opacity-50 font-medium">Progress:</span>
+            {wordCount.toLocaleString()} / {MAX_WORDS.toLocaleString()}
+            <span className="text-[10px] uppercase opacity-40">Words</span>
+          </div>
+        </div>
+
+        {/* Error message */}
+        <AnimatePresence>
+          {error && (
+            <motion.div
+              initial={{ opacity: 0, y: -10 }}
+              animate={{ opacity: 1, y: 0 }}
+              exit={{ opacity: 0, scale: 0.95 }}
+              className="flex items-center gap-3 text-destructive text-sm p-4 bg-destructive/10 border border-destructive/20 rounded-2xl"
+            >
+              <AlertCircle className="w-5 h-5 shrink-0" />
+              <span className="font-semibold">{error}</span>
+            </motion.div>
+          )}
+        </AnimatePresence>
+
+        {/* Action buttons */}
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-4 pt-4">
+          <Button
+            onClick={handleSubmit}
+            disabled={isLoading || !text.trim() || isOverLimit}
+            size="lg"
+            className="relative h-14 md:col-span-1 font-bold text-lg rounded-2xl shadow-xl shadow-primary/20 bg-primary hover:bg-primary/90 hover:scale-[1.02] active:scale-[0.98] transition-all group overflow-hidden"
+          >
+            <div className="absolute inset-0 bg-gradient-to-r from-transparent via-white/10 to-transparent -translate-x-full group-hover:translate-x-full transition-transform duration-1000" />
+            <Sparkles className="w-5 h-5 mr-3 group-hover:rotate-12 transition-transform" />
+            {isLoading ? "Analyzing..." : "Summarize"}
+          </Button>
+
+          <Button
+            variant="outline"
+            onClick={() => fileInputRef.current?.click()}
+            disabled={isLoading}
+            size="lg"
+            className="h-14 font-semibold text-base rounded-2xl border-primary/20 bg-primary/5 hover:bg-primary/10 hover:border-primary/40 active:scale-[0.98] shadow-sm transition-all text-primary"
+          >
+            <Upload className="w-5 h-5 mr-3" />
+            Import PDF
+          </Button>
+
+          <Button
+            variant="ghost"
+            onClick={() => {
+              setText(SAMPLE_TEXT);
+              setError("");
+              setFileName("economics_101.pdf");
+            }}
+            disabled={isLoading}
+            size="lg"
+            className="h-14 font-semibold text-base rounded-2xl hover:bg-primary/10 hover:text-primary active:scale-[0.98] transition-all"
+          >
+            <FileText className="w-5 h-5 mr-3" />
+            Load Sample
+          </Button>
+
+          <input
+            ref={fileInputRef}
+            type="file"
+            accept=".pdf"
+            className="hidden"
+            onChange={(e) => {
+              const file = e.target.files?.[0];
+              if (file) handleFileUpload(file);
+            }}
+          />
+        </div>
+      </div>
     </motion.div>
   );
 }

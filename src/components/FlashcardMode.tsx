@@ -1,8 +1,8 @@
-import { useState } from 'react';
-import { Card } from '@/components/ui/card';
-import { Button } from '@/components/ui/button';
-import { ChevronLeft, ChevronRight, RotateCcw } from 'lucide-react';
-import { motion, AnimatePresence } from 'framer-motion';
+import { useState } from "react";
+import { Button } from "@/components/ui/button";
+import { Badge } from "@/components/ui/badge";
+import { ChevronLeft, ChevronRight, RotateCcw } from "lucide-react";
+import { motion } from "framer-motion";
 
 interface FlashcardModeProps {
   keyTerms: { term: string; definition: string }[];
@@ -26,58 +26,109 @@ export function FlashcardMode({ keyTerms, onClose }: FlashcardModeProps) {
   };
 
   return (
-    <div className="space-y-4">
+    <div className="space-y-6">
       <div className="flex items-center justify-between">
-        <span className="text-sm text-muted-foreground font-medium">
-          Card {index + 1} of {keyTerms.length}
-        </span>
-        <Button variant="ghost" size="sm" onClick={onClose}>
+        <div className="flex items-center gap-2">
+          <Badge variant="outline" className="bg-primary/5 border-primary/20">
+            Card {index + 1} of {keyTerms.length}
+          </Badge>
+        </div>
+        <Button
+          variant="ghost"
+          size="sm"
+          onClick={onClose}
+          className="text-muted-foreground hover:text-primary transition-colors"
+        >
           Back to list
         </Button>
       </div>
 
       <div
-        className="perspective-1000 cursor-pointer"
+        className="relative perspective-1000 w-full h-64 md:h-80 cursor-pointer group"
         onClick={() => setFlipped(!flipped)}
-        style={{ perspective: '1000px' }}
       >
-        <AnimatePresence mode="wait">
-          <motion.div
-            key={`${index}-${flipped}`}
-            initial={{ rotateY: 90, opacity: 0 }}
-            animate={{ rotateY: 0, opacity: 1 }}
-            exit={{ rotateY: -90, opacity: 0 }}
-            transition={{ duration: 0.3 }}
+        <motion.div
+          animate={{ rotateY: flipped ? 180 : 0 }}
+          transition={{
+            duration: 0.6,
+            type: "spring",
+            stiffness: 260,
+            damping: 20,
+          }}
+          style={{ transformStyle: "preserve-3d" }}
+          className="relative w-full h-full"
+        >
+          {/* Front of Card */}
+          <div
+            className="absolute inset-0 backface-hidden glass-card flex flex-col items-center justify-center p-8 text-center"
+            style={{ backfaceVisibility: "hidden" }}
           >
-            <Card className="min-h-[200px] flex items-center justify-center p-8 bg-card border-2 border-primary/20 hover:border-primary/40 transition-colors">
-              <div className="text-center space-y-3">
-                <span className="text-xs uppercase tracking-wider text-muted-foreground font-medium">
-                  {flipped ? 'Definition' : 'Term'}
-                </span>
-                <p className={`font-dyslexic leading-relaxed ${flipped ? 'text-lg text-muted-foreground' : 'text-2xl font-bold'}`}>
-                  {flipped ? current.definition : current.term}
-                </p>
-                <p className="text-xs text-muted-foreground">Tap to flip</p>
-              </div>
-            </Card>
-          </motion.div>
-        </AnimatePresence>
+            <span className="text-[10px] uppercase tracking-[0.2em] text-primary font-bold mb-4 opacity-70">
+              Term
+            </span>
+            <h3 className="text-2xl md:text-3xl font-bold tracking-tight">
+              {current.term}
+            </h3>
+            <p className="mt-6 text-xs text-muted-foreground opacity-50 font-medium">
+              Click to reveal definition
+            </p>
+          </div>
+
+          {/* Back of Card */}
+          <div
+            className="absolute inset-0 backface-hidden glass-card flex flex-col items-center justify-center p-8 text-center"
+            style={{
+              backfaceVisibility: "hidden",
+              transform: "rotateY(180deg)",
+            }}
+          >
+            <span className="text-[10px] uppercase tracking-[0.2em] text-accent font-bold mb-4 opacity-70">
+              Definition
+            </span>
+            <p className="font-dyslexic text-lg md:text-xl leading-relaxed text-muted-foreground">
+              {current.definition}
+            </p>
+          </div>
+        </motion.div>
       </div>
 
-      <div className="flex items-center justify-between">
-        <Button variant="outline" size="icon" onClick={prev} disabled={index === 0}>
-          <ChevronLeft className="w-4 h-4" />
+      <div className="flex items-center justify-center gap-8 pt-4">
+        <Button
+          variant="secondary"
+          size="icon"
+          onClick={(e) => {
+            e.stopPropagation();
+            prev();
+          }}
+          disabled={index === 0}
+          className="rounded-full w-12 h-12 shadow-lg border-white/20"
+        >
+          <ChevronLeft className="w-6 h-6" />
         </Button>
         <Button
           variant="ghost"
-          size="sm"
-          onClick={() => { setIndex(0); setFlipped(false); }}
+          size="icon"
+          onClick={(e) => {
+            e.stopPropagation();
+            setIndex(0);
+            setFlipped(false);
+          }}
+          className="rounded-full w-10 h-10 opacity-50 hover:opacity-100"
+          title="Restart"
         >
-          <RotateCcw className="w-4 h-4 mr-1" />
-          Restart
+          <RotateCcw className="w-5 h-5" />
         </Button>
-        <Button variant="outline" size="icon" onClick={next} disabled={index === keyTerms.length - 1}>
-          <ChevronRight className="w-4 h-4" />
+        <Button
+          variant="secondary"
+          size="icon"
+          onClick={(e) => {
+            e.stopPropagation();
+            next();
+          }}
+          disabled={index === keyTerms.length - 1}
+          className="rounded-full w-12 h-12 shadow-lg border-white/20"
+        >
+          <ChevronRight className="w-6 h-6" />
         </Button>
       </div>
     </div>

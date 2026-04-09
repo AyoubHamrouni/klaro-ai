@@ -7,57 +7,76 @@ import {
   Minus,
   Eye,
   RotateCcw,
+  History as HistoryIcon,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { motion } from "framer-motion";
 
 interface HeaderProps {
-  dyslexicFont: boolean;
-  setDyslexicFont: (v: boolean) => void;
-  fontSize: "normal" | "large" | "xlarge";
-  setFontSize: (v: "normal" | "large" | "xlarge") => void;
-  darkMode: boolean;
-  setDarkMode: (v: boolean) => void;
-  showRuler: boolean;
-  setShowRuler: (v: boolean) => void;
+  dyslexicFont?: boolean;
+  setDyslexicFont?: (v: boolean) => void;
+  fontSize?: "normal" | "large" | "xlarge";
+  setFontSize?: (v: "normal" | "large" | "xlarge") => void;
+  darkMode?: boolean;
+  setDarkMode?: (v: boolean) => void;
+  showRuler?: boolean;
+  setShowRuler?: (v: boolean) => void;
   onReset?: () => void;
+  onOpenVault?: () => void;
   hasResult?: boolean;
 }
 
 export function Header({
-  dyslexicFont,
+  dyslexicFont = false,
   setDyslexicFont,
-  fontSize,
+  fontSize = "normal",
   setFontSize,
-  darkMode,
+  darkMode = false,
   setDarkMode,
-  showRuler,
+  showRuler = false,
   setShowRuler,
   onReset,
+  onOpenVault,
   hasResult,
 }: HeaderProps) {
   return (
     <motion.header
       initial={{ opacity: 0, y: -20 }}
       animate={{ opacity: 1, y: 0 }}
-      className="sticky top-0 z-50 bg-background/70 backdrop-blur-xl border-b border-border/50 shadow-sm"
+      className="glass-header z-50"
     >
-      <div className="max-w-3xl mx-auto px-4 h-14 flex items-center justify-between">
-        <div className="flex items-center gap-2">
-          <BookOpen className="w-5 h-5 text-primary" />
-          <span className="font-bold text-lg tracking-tight">
-            Study<span className="text-primary">Ease</span>
+      <div className="max-w-7xl mx-auto px-6 h-16 flex items-center justify-between">
+        <div className="flex items-center gap-3 group px-4 py-1.5 rounded-2xl hover:bg-white/5 transition-all cursor-pointer">
+          <div className="w-10 h-10 rounded-xl bg-white flex items-center justify-center pulse-glow overflow-hidden border border-primary/20">
+            <img
+              src="/branding/logo.png"
+              alt="Lumina Logo"
+              className="w-full h-full object-contain p-1.5"
+            />
+          </div>
+          <span className="font-black text-xl tracking-tighter bg-clip-text text-transparent bg-gradient-to-r from-primary via-indigo-500 to-indigo-400 uppercase">
+            Lumina OS
           </span>
         </div>
 
         <div className="flex items-center gap-1">
+          <Button
+            variant="ghost"
+            size="icon"
+            className="h-8 w-8 text-muted-foreground mr-2"
+            onClick={onOpenVault}
+            title="Open Study Vault"
+          >
+            <HistoryIcon className="w-4 h-4" />
+          </Button>
+
           {hasResult && onReset && (
             <Button
               variant="ghost"
               size="icon"
               className="h-8 w-8"
               onClick={onReset}
-              title="New text"
+              title="New study session"
             >
               <RotateCcw className="w-4 h-4" />
             </Button>
