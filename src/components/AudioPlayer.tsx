@@ -8,9 +8,11 @@ import { toast } from '@/hooks/use-toast';
 
 interface AudioPlayerProps {
   text: string;
+  onProgressChange?: (progress: number) => void;
+  onPlayingChange?: (playing: boolean) => void;
 }
 
-export function AudioPlayer({ text }: AudioPlayerProps) {
+export function AudioPlayer({ text, onProgressChange, onPlayingChange }: AudioPlayerProps) {
   const [isPlaying, setIsPlaying] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
   const [progress, setProgress] = useState(0);

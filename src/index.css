@@ -113,3 +113,18 @@
     line-height: 1.8;
   }
 }
+
+/* Confetti animation */
+@keyframes confetti-fall {
+  0% { transform: translateY(-10px) rotate(0deg); opacity: 1; }
+  100% { transform: translateY(400px) rotate(720deg); opacity: 0; }
+}
+
+.confetti-container .confetti-piece {
+  position: absolute;
+  width: 8px;
+  height: 8px;
+  top: 0;
+  border-radius: 2px;
+  animation: confetti-fall 2s ease-out forwards;
+}
