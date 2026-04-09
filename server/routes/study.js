@@ -84,6 +84,61 @@ function isRateLimitError(error) {
 }
 
 /**
+ * Validate an AI response against a basic schema definition.
+ *
+ * Supports nested objects, arrays, strings, and integers.
+ */
+function validateResponseAgainstSchema(result, schema) {
+  if (!schema) return true;
+
+  if (schema.type === "OBJECT") {
+    if (
+      typeof result !== "object" ||
+      result === null ||
+      Array.isArray(result)
+    ) {
+      return false;
+    }
+
+    if (Array.isArray(schema.required)) {
+      for (const key of schema.required) {
+        if (!(key in result)) return false;
+      }
+    }
+
+    if (schema.properties) {
+      for (const [key, propertySchema] of Object.entries(schema.properties)) {
+        if (!(key in result)) continue;
+        if (!validateResponseAgainstSchema(result[key], propertySchema))
+          return false;
+      }
+    }
+
+    return true;
+  }
+
+  if (schema.type === "ARRAY") {
+    if (!Array.isArray(result)) return false;
+    if (schema.items) {
+      for (const item of result) {
+        if (!validateResponseAgainstSchema(item, schema.items)) return false;
+      }
+    }
+    return true;
+  }
+
+  if (schema.type === "STRING") {
+    return typeof result === "string";
+  }
+
+  if (schema.type === "INTEGER") {
+    return Number.isInteger(result);
+  }
+
+  return true;
+}
+
+/**
  * Multi-Model AI Fallback System
  *
  * Attempts to generate content using multiple AI providers in sequence.
@@ -196,6 +251,13 @@ async function callAIWithFallback(
         }
 
         if (result) {
+          const valid = validateResponseAgainstSchema(result, schema);
+          if (!valid) {
+            throw new Error(
+              `${provider.name} returned malformed data that did not match the expected schema.`,
+            );
+          }
+
           console.log(
             `[AI] ✅ ${provider.name} succeeded on attempt ${attempt}.`,
           );
