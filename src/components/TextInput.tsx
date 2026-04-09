@@ -1,11 +1,11 @@
-import { useState, useCallback, useRef } from 'react';
-import { Upload, FileText, Sparkles, AlertCircle } from 'lucide-react';
-import { Button } from '@/components/ui/button';
-import { Textarea } from '@/components/ui/textarea';
-import { Card, CardContent } from '@/components/ui/card';
-import { SAMPLE_TEXT } from '@/lib/sample-text';
-import { extractTextFromPDF, countWords } from '@/lib/pdf-parser';
-import { motion, AnimatePresence } from 'framer-motion';
+import { useState, useCallback, useRef } from "react";
+import { Upload, FileText, Sparkles, AlertCircle } from "lucide-react";
+import { Button } from "@/components/ui/button";
+import { Textarea } from "@/components/ui/textarea";
+import { Card, CardContent } from "@/components/ui/card";
+import { SAMPLE_TEXT } from "@/lib/sample-text";
+import { extractTextFromPDF, countWords } from "@/lib/pdf-parser";
+import { motion, AnimatePresence } from "framer-motion";
 
 const MAX_WORDS = 5000;
 
@@ -15,10 +15,10 @@ interface TextInputProps {
 }
 
 export function TextInput({ onSubmit, isLoading }: TextInputProps) {
-  const [text, setText] = useState('');
+  const [text, setText] = useState("");
   const [dragActive, setDragActive] = useState(false);
-  const [error, setError] = useState('');
-  const [fileName, setFileName] = useState('');
+  const [error, setError] = useState("");
+  const [fileName, setFileName] = useState("");
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   const wordCount = countWords(text);
@@ -26,45 +26,54 @@ export function TextInput({ onSubmit, isLoading }: TextInputProps) {
 
   const handleTextChange = (value: string) => {
     setText(value);
-    setError('');
-    setFileName('');
+    setError("");
+    setFileName("");
   };
 
   const handleFileUpload = useCallback(async (file: File) => {
-    if (file.type !== 'application/pdf') {
-      setError('Only PDF files are supported. Please upload a PDF or paste text directly.');
+    if (file.type !== "application/pdf") {
+      setError(
+        "Only PDF files are supported. Please upload a PDF or paste text directly.",
+      );
       return;
     }
     if (file.size > 20 * 1024 * 1024) {
-      setError('File is too large. Maximum size is 20MB.');
+      setError("File is too large. Maximum size is 20MB.");
       return;
     }
     try {
-      setError('');
+      setError("");
       setFileName(file.name);
       const extracted = await extractTextFromPDF(file);
       if (!extracted.trim()) {
-        setError('Could not extract text from this PDF. It may be image-based. Try pasting the text instead.');
-        setFileName('');
+        setError(
+          "Could not extract text from this PDF. It may be image-based. Try pasting the text instead.",
+        );
+        setFileName("");
         return;
       }
       setText(extracted);
     } catch {
-      setError('Failed to read the PDF. Please try a different file or paste text directly.');
-      setFileName('');
+      setError(
+        "Failed to read the PDF. Please try a different file or paste text directly.",
+      );
+      setFileName("");
     }
   }, []);
 
-  const handleDrop = useCallback((e: React.DragEvent) => {
-    e.preventDefault();
-    setDragActive(false);
-    const file = e.dataTransfer.files[0];
-    if (file) handleFileUpload(file);
-  }, [handleFileUpload]);
+  const handleDrop = useCallback(
+    (e: React.DragEvent) => {
+      e.preventDefault();
+      setDragActive(false);
+      const file = e.dataTransfer.files[0];
+      if (file) handleFileUpload(file);
+    },
+    [handleFileUpload],
+  );
 
   const handleSubmit = () => {
     if (!text.trim()) {
-      setError('Please enter or upload some text first.');
+      setError("Please enter or upload some text first.");
       return;
     }
     if (isOverLimit) {
@@ -80,14 +89,17 @@ export function TextInput({ onSubmit, isLoading }: TextInputProps) {
       animate={{ opacity: 1, y: 0 }}
       transition={{ duration: 0.5 }}
     >
-      <Card className="border-2 border-dashed border-border bg-card/50 backdrop-blur-sm">
+      <Card className="border-2 border-dashed border-primary/20 bg-card/60 backdrop-blur-md shadow-xl hover:border-primary/40 transition-colors duration-300">
         <CardContent className="p-6 space-y-4">
           {/* Drop zone */}
           <div
-            onDragOver={(e) => { e.preventDefault(); setDragActive(true); }}
+            onDragOver={(e) => {
+              e.preventDefault();
+              setDragActive(true);
+            }}
             onDragLeave={() => setDragActive(false)}
             onDrop={handleDrop}
-            className={`relative transition-all duration-200 rounded-lg ${dragActive ? 'ring-2 ring-primary bg-primary/5' : ''}`}
+            className={`relative transition-all duration-200 rounded-lg ${dragActive ? "ring-2 ring-primary bg-primary/5" : ""}`}
           >
             <Textarea
               value={text}
@@ -123,7 +135,9 @@ export function TextInput({ onSubmit, isLoading }: TextInputProps) {
                 </span>
               )}
             </div>
-            <span className={`font-medium ${isOverLimit ? 'text-destructive' : 'text-muted-foreground'}`}>
+            <span
+              className={`font-medium ${isOverLimit ? "text-destructive" : "text-muted-foreground"}`}
+            >
               {wordCount.toLocaleString()} / {MAX_WORDS.toLocaleString()} words
             </span>
           </div>
@@ -133,7 +147,7 @@ export function TextInput({ onSubmit, isLoading }: TextInputProps) {
             {error && (
               <motion.div
                 initial={{ opacity: 0, height: 0 }}
-                animate={{ opacity: 1, height: 'auto' }}
+                animate={{ opacity: 1, height: "auto" }}
                 exit={{ opacity: 0, height: 0 }}
                 className="flex items-center gap-2 text-destructive text-sm p-3 bg-destructive/10 rounded-lg"
               >
@@ -144,36 +158,48 @@ export function TextInput({ onSubmit, isLoading }: TextInputProps) {
           </AnimatePresence>
 
           {/* Action buttons */}
-          <div className="flex flex-wrap gap-3">
-            <Button
-              onClick={handleSubmit}
-              disabled={isLoading || !text.trim() || isOverLimit}
-              size="lg"
-              className="font-semibold text-base px-8"
-            >
-              <Sparkles className="w-5 h-5" />
-              {isLoading ? 'Summarizing...' : 'Summarize'}
-            </Button>
+          <div className="flex flex-wrap gap-3 pt-2">
+            <motion.div whileHover={{ scale: 1.02 }} whileTap={{ scale: 0.98 }}>
+              <Button
+                onClick={handleSubmit}
+                disabled={isLoading || !text.trim() || isOverLimit}
+                size="lg"
+                className="font-semibold text-base px-8 shadow-lg shadow-primary/20 bg-gradient-to-r from-primary to-primary/90 hover:from-primary hover:to-primary"
+              >
+                <Sparkles className="w-5 h-5 mr-2" />
+                {isLoading ? "Summarizing..." : "Summarize"}
+              </Button>
+            </motion.div>
 
-            <Button
-              variant="outline"
-              onClick={() => fileInputRef.current?.click()}
-              disabled={isLoading}
-              size="lg"
-            >
-              <Upload className="w-5 h-5" />
-              Upload PDF
-            </Button>
+            <motion.div whileHover={{ scale: 1.02 }} whileTap={{ scale: 0.98 }}>
+              <Button
+                variant="outline"
+                onClick={() => fileInputRef.current?.click()}
+                disabled={isLoading}
+                size="lg"
+                className="border-primary/20 hover:bg-primary/5 shadow-sm"
+              >
+                <Upload className="w-5 h-5 mr-2" />
+                Upload PDF
+              </Button>
+            </motion.div>
 
-            <Button
-              variant="secondary"
-              onClick={() => { setText(SAMPLE_TEXT); setError(''); setFileName('demo-text.txt'); }}
-              disabled={isLoading}
-              size="lg"
-            >
-              <FileText className="w-5 h-5" />
-              Try Demo
-            </Button>
+            <motion.div whileHover={{ scale: 1.02 }} whileTap={{ scale: 0.98 }}>
+              <Button
+                variant="secondary"
+                onClick={() => {
+                  setText(SAMPLE_TEXT);
+                  setError("");
+                  setFileName("demo-text.txt");
+                }}
+                disabled={isLoading}
+                size="lg"
+                className="shadow-sm hover:shadow-md transition-shadow"
+              >
+                <FileText className="w-5 h-5 mr-2" />
+                Try Demo
+              </Button>
+            </motion.div>
 
             <input
               ref={fileInputRef}

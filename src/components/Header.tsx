@@ -1,12 +1,21 @@
-import { BookOpen, Sun, Moon, Type, Plus, Minus, Eye, RotateCcw } from 'lucide-react';
-import { Button } from '@/components/ui/button';
-import { motion } from 'framer-motion';
+import {
+  BookOpen,
+  Sun,
+  Moon,
+  Type,
+  Plus,
+  Minus,
+  Eye,
+  RotateCcw,
+} from "lucide-react";
+import { Button } from "@/components/ui/button";
+import { motion } from "framer-motion";
 
 interface HeaderProps {
   dyslexicFont: boolean;
   setDyslexicFont: (v: boolean) => void;
-  fontSize: 'normal' | 'large' | 'xlarge';
-  setFontSize: (v: 'normal' | 'large' | 'xlarge') => void;
+  fontSize: "normal" | "large" | "xlarge";
+  setFontSize: (v: "normal" | "large" | "xlarge") => void;
   darkMode: boolean;
   setDarkMode: (v: boolean) => void;
   showRuler: boolean;
@@ -16,17 +25,22 @@ interface HeaderProps {
 }
 
 export function Header({
-  dyslexicFont, setDyslexicFont,
-  fontSize, setFontSize,
-  darkMode, setDarkMode,
-  showRuler, setShowRuler,
-  onReset, hasResult,
+  dyslexicFont,
+  setDyslexicFont,
+  fontSize,
+  setFontSize,
+  darkMode,
+  setDarkMode,
+  showRuler,
+  setShowRuler,
+  onReset,
+  hasResult,
 }: HeaderProps) {
   return (
     <motion.header
-      initial={{ opacity: 0, y: -10 }}
+      initial={{ opacity: 0, y: -20 }}
       animate={{ opacity: 1, y: 0 }}
-      className="sticky top-0 z-50 bg-background/80 backdrop-blur-md border-b"
+      className="sticky top-0 z-50 bg-background/70 backdrop-blur-xl border-b border-border/50 shadow-sm"
     >
       <div className="max-w-3xl mx-auto px-4 h-14 flex items-center justify-between">
         <div className="flex items-center gap-2">
@@ -49,7 +63,7 @@ export function Header({
             </Button>
           )}
           <Button
-            variant={dyslexicFont ? 'default' : 'ghost'}
+            variant={dyslexicFont ? "default" : "ghost"}
             size="icon"
             className="h-8 w-8"
             onClick={() => setDyslexicFont(!dyslexicFont)}
@@ -61,13 +75,25 @@ export function Header({
             variant="ghost"
             size="icon"
             className="h-8 w-8"
-            onClick={() => setFontSize(fontSize === 'normal' ? 'large' : fontSize === 'large' ? 'xlarge' : 'normal')}
+            onClick={() =>
+              setFontSize(
+                fontSize === "normal"
+                  ? "large"
+                  : fontSize === "large"
+                    ? "xlarge"
+                    : "normal",
+              )
+            }
             title="Adjust text size"
           >
-            {fontSize === 'xlarge' ? <Minus className="w-4 h-4" /> : <Plus className="w-4 h-4" />}
+            {fontSize === "xlarge" ? (
+              <Minus className="w-4 h-4" />
+            ) : (
+              <Plus className="w-4 h-4" />
+            )}
           </Button>
           <Button
-            variant={showRuler ? 'default' : 'ghost'}
+            variant={showRuler ? "default" : "ghost"}
             size="icon"
             className="h-8 w-8"
             onClick={() => setShowRuler(!showRuler)}
@@ -82,7 +108,11 @@ export function Header({
             onClick={() => setDarkMode(!darkMode)}
             title="Toggle dark mode"
           >
-            {darkMode ? <Sun className="w-4 h-4" /> : <Moon className="w-4 h-4" />}
+            {darkMode ? (
+              <Sun className="w-4 h-4" />
+            ) : (
+              <Moon className="w-4 h-4" />
+            )}
           </Button>
         </div>
       </div>
