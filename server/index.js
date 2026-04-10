@@ -1,7 +1,7 @@
 /**
- * Lumina OS API Server
+ * Klaro AI API Server
  *
- * Main entry point for the Lumina OS backend API.
+ * Main entry point for the Klaro AI backend API.
  * Provides AI-powered study assistance with multi-model fallback system.
  *
  * @author Ayoub Hamrouni
@@ -22,7 +22,7 @@ const PORT = process.env.PORT || 3001;
  * Logs API key configuration status for debugging
  */
 app.listen(PORT, () => {
-  console.log(`🚀 Lumina OS API running on port ${PORT}`);
+  console.log(`🚀 Klaro AI API running on port ${PORT}`);
   console.log(`📍 Health check: http://localhost:${PORT}/health`);
   console.log("");
 

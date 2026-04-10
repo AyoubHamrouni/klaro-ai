@@ -1,5 +1,5 @@
 /**
- * Study Routes for Lumina OS API
+ * Study Routes for Klaro AI API
  *
  * Provides AI-powered study assistance endpoints including summarization,
  * task generation, mind mapping, and text-to-speech functionality.
@@ -157,7 +157,7 @@ async function fetchTextResponse(url, options = {}) {
     const response = await fetch(url, {
       ...options,
       headers: {
-        "User-Agent": "LuminaOS/1.0 (+study-source-extractor)",
+        "User-Agent": "KlaroAI/1.0 (+study-source-extractor)",
         Accept: "text/plain,text/html,application/json;q=0.9,*/*;q=0.8",
         ...(options.headers || {}),
       },
@@ -599,21 +599,19 @@ async function callAIWithFallback(
  */
 function getMockSummary(text) {
   const wordCount = text.split(/\s+/).length;
-  const summaryLength = Math.max(50, Math.min(200, wordCount / 5));
+  const words = text.split(/\s+/).filter(Boolean);
+  // Extract the first few meaningful words for a topic hint
+  const topicHint = words.slice(0, 8).join(" ");
   return {
-    summary: `This is a ${Math.round(wordCount / 10) * 10}-word educational text about ${text.substring(0, 50).split(" ").slice(0, 3).join(" ")}... (Mock summary for demo - AI services temporarily unavailable)`,
+    summary: `[Klaro AI – Offline Fallback] The uploaded material (~${wordCount} words, starting with: "${topicHint}...") could not be analyzed by an AI provider right now. Please retry in a few seconds. When connectivity is restored, Klaro AI will generate a full structured summary with core thesis, key arguments, evidence analysis, and actionable takeaways.`,
     keyTerms: [
       {
-        term: "Education",
-        definition: "The process of learning and acquiring knowledge",
-      },
-      {
-        term: "Learning",
-        definition: "The acquisition of knowledge or skills",
+        term: "[Unavailable]",
+        definition: "Key terms will be extracted from your specific document once an AI provider is available.",
       },
     ],
-    difficulty_level: "intermediate",
-    wordCount: summaryLength,
+    difficulty_level: "unknown",
+    wordCount: 0,
   };
 }
 
@@ -876,6 +874,16 @@ function getMockTasks(summary) {
   ];
 }
 
+function getMockFlashcards(text) {
+  const topicHint = text.split(/\s+/).slice(0, 6).join(" ") || "this topic";
+  return [
+    {
+      question: `What is the main subject discussed in the material starting with "${topicHint}..."?`,
+      answer: "[Klaro AI Offline] Flashcards will be generated from your specific document once an AI provider is available.",
+    },
+  ];
+}
+
 /**
  * Generate mock quiz data when AI providers are unavailable.
  *
@@ -921,7 +929,7 @@ function getMockQuiz(text) {
  */
 function getMockChatReply(message) {
   return {
-    reply: `Thanks for your question! I’m having trouble connecting to the study assistant right now, but here’s a quick tip: break your work into small steps and review one idea at a time.`,
+    reply: `I appreciate your question! Klaro AI is temporarily unable to reach its AI providers. Please double-check that your API keys are configured in server/.env and try again in a moment. In the meantime, try re-reading the summary and picking out the key terms — active recall is one of the best study strategies!`,
   };
 }
 
@@ -970,8 +978,40 @@ router.post("/study-bundle", async (req, res) => {
 
     console.log("[Study Bundle] 🚀 Generating full study package...");
 
-    // 1. Generate Summary & Key Terms
-    const summaryPrompt = `Summarize the following text for a student. The summary should be 15-20% of the original length. Use simple, clear language. Return a JSON object with keys: "summary" (string), "keyTerms" (array of {term, definition}), and "difficulty_level" (string).\n\nText:\n${text}`;
+    // ── 1. Summary & Key Terms (deep semantic analysis) ──
+    const summarySystemPrompt = `You are Klaro AI, an expert academic content analyst. Your task is to perform DEEP SEMANTIC ANALYSIS of the provided document text.
+
+You MUST:
+- Read and comprehend the ENTIRE document content provided below.
+- Identify the document's central thesis or main argument.
+- Extract the 3-5 most critical supporting arguments or evidence chains.
+- Identify actionable takeaways the student should remember.
+- Extract key domain-specific terms that actually appear in the text (NOT generic words like "Education" or "Learning").
+
+You MUST NOT:
+- Return generic filler like "this text discusses..." or "the document is about...".
+- Simply count words or describe metadata.
+- Hallucinate information not present in the source text.
+- Use placeholder terms that don't come from the document.
+
+Output language: clear, structured, accessible.`;
+
+    const summaryUserPrompt = `Analyze the following document and produce a structured summary.
+
+Requirements:
+1. "summary": A comprehensive analytical summary (15-20% of original length). Structure it as:
+   - Opening: State the core thesis/main claim in 1-2 sentences.
+   - Body: Cover the key supporting arguments, evidence, and reasoning.
+   - Closing: Highlight actionable takeaways or conclusions.
+2. "keyTerms": Extract 4-8 domain-specific terms that are ACTUALLY USED in this text. Each must have a contextual definition explaining what it means IN THIS SPECIFIC DOCUMENT.
+3. "difficulty_level": One of "beginner", "intermediate", or "advanced" based on vocabulary complexity, concept density, and prerequisite knowledge needed.
+
+Return a JSON object with keys: "summary" (string), "keyTerms" (array of {term, definition}), "difficulty_level" (string).
+
+--- DOCUMENT START ---
+${text}
+--- DOCUMENT END ---`;
+
     const summarySchema = {
       type: "OBJECT",
       properties: {
@@ -993,62 +1033,112 @@ router.post("/study-bundle", async (req, res) => {
     };
 
     const summaryResult = await callAIWithFallback(
-      "You are a study assistant specialized in helping neurodivergent readers. Use clear language and structured formats.",
-      summaryPrompt,
+      summarySystemPrompt,
+      summaryUserPrompt,
       summarySchema,
       getMockSummary(text),
     );
 
-    // 2. Generate Action Plan (Micro-tasks)
-    const decomposePrompt = `Break down the following study material into a list of 5-8 small, actionable tasks that a student can complete in 5-10 minutes each. Return a JSON object with a "tasks" key containing an array of strings.\n\nSummary:\n${summaryResult.summary}`;
+    // ── 2. Action Plan (Micro-tasks) ──
+    const decomposePrompt = `Based on this study summary, create 5-8 specific, actionable study tasks. Each task should:
+- Be completable in 5-10 minutes
+- Reference specific concepts from the summary
+- Progress from comprehension → application → recall
+- Use encouraging, clear language
+
+Return a JSON object with a "tasks" key containing an array of strings.
+
+Summary:
+${summaryResult.summary}`;
     const decomposeSchema = {
       type: "OBJECT",
       properties: { tasks: { type: "ARRAY", items: { type: "STRING" } } },
       required: ["tasks"],
     };
 
-    // 3. Generate Mind Map (Mermaid.js syntax)
-    const mindmapPrompt = `Create a premium study mind map for the following summary using Mermaid.js mindmap syntax.
-Rules:
+    // ── 3. Mind Map (Mermaid.js syntax) ──
+    const mindmapPrompt = `Analyze this study summary and create a hierarchical concept map using Mermaid.js mindmap syntax.
+
+Your task:
+1. Identify the PRIMARY TOPIC from the content (not a generic label).
+2. Extract 4-6 DISTINCT key concepts directly from the summary as main branches.
+3. For each branch, add 2-3 specific sub-concepts, examples, or details FROM THE TEXT.
+4. Map hierarchical relationships: cause→effect, category→examples, claim→evidence.
+
+Strict rules:
 - Start with: mindmap
 - Use 2-space indentation for hierarchy
-- Root node should be the main topic (1-3 words) wrapped in (( ))
+- Root node: the actual topic (1-3 words) wrapped in (( ))
 - Max 3 levels of depth
-- Each node: 1-5 words MAX, concrete and content-specific
-- 4-6 branches from root
-- Each branch should cover a different angle of the topic
-- Each branch should have 2-3 detail nodes
-- Prefer concept groupings a student would actually review, not generic labels like Overview, Details, or Summary
-- Capture relationships, mechanisms, categories, causes, effects, examples, or steps when present
-- Return ONLY the raw Mermaid mindmap syntax, NO code fences, NO explanation
+- Each node: 1-5 words, SPECIFIC to this content (no generic labels like "Overview", "Details", "Summary")
+- Focus on concepts a student would actually need to recall
+- Return ONLY raw Mermaid mindmap syntax, NO code fences, NO explanation
 
-Example format:
+Example:
 mindmap
-  root((Biology))
-    Cell Structure
-      Cell Membrane
-      Nucleus
-    Metabolism
-      Glycolysis
-      Photosynthesis
+  root((Photosynthesis))
+    Light Reactions
+      Photosystem II
+      Electron Transport
+    Calvin Cycle
+      Carbon Fixation
+      Sugar Production
 
 Summary:
 ${summaryResult.summary}`;
 
-    const [actionPlan, mindmapResult] = await Promise.allSettled([
+    // ── 4. Flashcard Generation (high-yield Q&A) ──
+    const flashcardPrompt = `Generate 6-10 high-yield study flashcards from this content. Each flashcard must:
+- Ask a specific question about a concept, fact, or relationship FOUND IN the text.
+- Have a concise, accurate answer grounded STRICTLY in the source material.
+- Range from factual recall ("What is X?") to conceptual understanding ("Why does X lead to Y?") to application ("How would you apply X in context Z?").
+
+Do NOT create generic questions. Every Q&A pair must be traceable to specific information in the text.
+
+Return a JSON object with a "flashcards" key containing an array of objects with "question" and "answer" keys.
+
+Source material:
+${summaryResult.summary}
+
+Key terms: ${summaryResult.keyTerms.map((t) => t.term).join(", ")}`;
+    const flashcardSchema = {
+      type: "OBJECT",
+      properties: {
+        flashcards: {
+          type: "ARRAY",
+          items: {
+            type: "OBJECT",
+            properties: {
+              question: { type: "STRING" },
+              answer: { type: "STRING" },
+            },
+            required: ["question", "answer"],
+          },
+        },
+      },
+      required: ["flashcards"],
+    };
+
+    const [actionPlan, mindmapResult, flashcardResult] = await Promise.allSettled([
       callAIWithFallback(
-        "You are an executive function coach. Break material into tiny, actionable steps.",
+        "You are Klaro AI, an executive function coach. Break material into tiny, actionable, content-specific steps.",
         decomposePrompt,
         decomposeSchema,
       ),
       callAIWithFallback(
-        "You are a visual learning expert. Generate clean Mermaid.js mindmap syntax only.",
+        "You are Klaro AI, a visual learning expert. Generate clean Mermaid.js mindmap syntax only. Every node must be content-specific.",
         mindmapPrompt,
         {
           type: "OBJECT",
           properties: { mindmap: { type: "STRING" } },
           required: ["mindmap"],
         },
+      ),
+      callAIWithFallback(
+        "You are Klaro AI, an expert flashcard creator for active recall study. Generate high-yield Q&A pairs strictly from the provided content. Never hallucinate or add information not in the source.",
+        flashcardPrompt,
+        flashcardSchema,
+        { flashcards: getMockFlashcards(text) },
       ),
     ]);
 
@@ -1062,10 +1152,16 @@ ${summaryResult.summary}`;
         ? normalizeMindmapResponse(mindmapResult.value, summaryResult.summary)
         : buildDeterministicMindmap(summaryResult.summary);
 
+    const flashcards =
+      flashcardResult.status === "fulfilled"
+        ? flashcardResult.value?.flashcards || getMockFlashcards(text)
+        : getMockFlashcards(text);
+
     const finalResult = {
       ...summaryResult,
       tasks,
       mindmapData,
+      flashcards,
       wordCount: summaryResult.summary.trim().split(/\s+/).length,
       originalWordCount: text.trim().split(/\s+/).length,
     };
@@ -1103,24 +1199,23 @@ router.post("/mindmap", async (req, res) => {
       return res.json(cached);
     }
 
-    const mindmapPrompt = `Analyze this study material and create a high-quality study mind map showing the main topic, key concepts, and relationships.
+    const mindmapPrompt = `Perform a semantic decomposition of the following study material and produce a concept map using Mermaid.js mindmap syntax.
 
 Your task:
-1. Identify the PRIMARY TOPIC (main subject)
-2. Extract 4-6 DISTINCT MAIN CONCEPTS directly from the content
-3. For each main concept, identify 2-3 SUB-CONCEPTS or DETAILS
-4. Show hierarchy: root → main concepts → details
+1. Identify the PRIMARY TOPIC from the actual content (NOT a generic label).
+2. Extract 4-6 DISTINCT KEY CONCEPTS that represent the main ideas, arguments, or components discussed.
+3. For each concept, identify 2-3 specific SUB-CONCEPTS, evidence, examples, or details FROM THE TEXT.
+4. Map hierarchical relationships: thesis→arguments, categories→members, causes→effects, processes→steps.
 
-Rules:
-- Root label: the main subject (2-3 words) wrapped in (( ))
-- Use Mermaid mindmap syntax with 2-space indents
-- Each node: 1-5 words, clear and specific to the content
-- Max 3 hierarchy levels
-- Focus on ACTUAL content, not generic structure
-- Use branches that feel like a polished study outline, not placeholders
-- Prefer labels covering mechanisms, categories, evidence, process, impact, examples, or strategy when relevant
+Strict rules:
 - Start with: mindmap
-- Return ONLY raw syntax, NO code fences
+- Use 2-space indentation for hierarchy depth
+- Root label: the actual subject (1-3 words) wrapped in (( ))
+- Max 3 hierarchy levels
+- Each node: 1-5 words, MUST be content-specific (no generic labels like "Overview", "Details", "Key Points")
+- Branches should represent concepts a student would genuinely need to recall
+- Prefer: mechanisms, categories, evidence, processes, impacts, examples, strategies
+- Return ONLY the raw Mermaid mindmap syntax — NO code fences, NO explanation, NO wrapper JSON
 
 Example:
 mindmap
@@ -1135,11 +1230,12 @@ mindmap
       Thylakoids
       Stroma
 
-Material to map:
-${summary}`;
+--- MATERIAL ---
+${summary}
+--- END ---`;
 
     const mindmapResult = await callAIWithFallback(
-      "You are a visual learning expert. Generate clean Mermaid.js mindmap syntax only.",
+      "You are Klaro AI, a visual learning expert. Generate clean, content-specific Mermaid.js mindmap syntax. Every node label must come from the provided text.",
       mindmapPrompt,
       {
         type: "OBJECT",
@@ -1208,9 +1304,31 @@ router.post("/summarize", async (req, res) => {
     const { text } = req.body;
     if (!text) return res.status(400).json({ error: "Text is required" });
 
-    const systemPrompt =
-      "You are a study assistant specialized in helping dyslexic readers. Use simple, clear language. Break down complex ideas.";
-    const userPrompt = `Summarize the following text for a student. The summary should be 15-20% of the original length. Use simple, clear language. Return a JSON object with keys: "summary" (string), "keyTerms" (array of {term, definition}), and "difficulty_level" (string).\n\nText:\n${text}`;
+    const systemPrompt = `You are Klaro AI, an expert academic content analyst. Perform deep semantic analysis of the provided document.
+
+You MUST:
+- Identify the document's central thesis, main arguments, and key evidence.
+- Extract domain-specific terms actually present in the text.
+- Produce a structured, content-rich summary — NOT generic filler.
+- Use clear, accessible language suitable for neurodivergent learners.
+
+You MUST NOT:
+- Return metadata like word counts as content.
+- Hallucinate information not in the source text.
+- Use placeholder terms that don't come from the document.`;
+
+    const userPrompt = `Analyze the following document and produce a structured summary.
+
+Requirements:
+1. "summary": A comprehensive analytical summary (15-20% of original length). State the core thesis, cover key arguments and evidence, and highlight actionable takeaways.
+2. "keyTerms": Extract 4-8 domain-specific terms ACTUALLY USED in this text with contextual definitions.
+3. "difficulty_level": "beginner", "intermediate", or "advanced".
+
+Return a JSON object with keys: "summary" (string), "keyTerms" (array of {term, definition}), "difficulty_level" (string).
+
+--- DOCUMENT START ---
+${text}
+--- DOCUMENT END ---`;
 
     const schema = {
       type: "OBJECT",
@@ -1288,9 +1406,26 @@ router.post("/generate-quiz", async (req, res) => {
     const { text } = req.body;
     if (!text) return res.status(400).json({ error: "Text is required" });
 
-    const systemPrompt =
-      "You are a study assistant that generates gamified quizzes. Generate 3 to 5 clear multiple choice questions.";
-    const userPrompt = `Generate a multiple choice quiz for the following text. Return a JSON object with a "questions" key containing an array of objects, each with: "question" (string), "options" (array of strings), "correctAnswerIndex" (integer), and "explanation" (string).\n\nText:\n${text}`;
+    const systemPrompt = `You are Klaro AI, a study quiz generator. Create challenging multiple-choice questions that test genuine understanding of the provided material.
+
+Rules:
+- Every question MUST be answerable from the provided text.
+- Include questions at different cognitive levels: recall, understanding, and application.
+- Each distractor (wrong answer) should be plausible but clearly wrong based on the text.
+- Explanations must reference specific information from the source material.
+- Never create generic questions that could apply to any topic.`;
+
+    const userPrompt = `Generate 4-6 multiple-choice quiz questions based STRICTLY on this material. Each question should test a different concept or detail from the text.
+
+Return a JSON object with a "questions" key containing an array of objects, each with:
+- "question" (string): A specific question about this text
+- "options" (array of 4 strings): One correct + three plausible distractors
+- "correctAnswerIndex" (integer): Index of the correct option (0-3)
+- "explanation" (string): Why the answer is correct, citing the text
+
+--- MATERIAL ---
+${text}
+--- END ---`;
 
     const schema = {
       type: "OBJECT",
@@ -1341,20 +1476,25 @@ router.post("/chat", async (req, res) => {
     const { message, context, history } = req.body;
     if (!message) return res.status(400).json({ error: "Message is required" });
 
-    const systemPrompt = `You are an encouraging study companion for a student with dyslexia. 
-      You are helping them understand the following context: 
-      ---
-      ${context}
-      ---
-      RULES:
-      1. Use simple, clear language.
-      2. Keep responses concise (under 3 sentences if possible).
-      3. Focus ONLY on explaining the provided context.
-      4. Be encouraging and patient.`;
+    const systemPrompt = `You are Klaro AI, a warm and knowledgeable study companion designed for neurodivergent learners.
+
+You have access to the following STUDY MATERIAL the student uploaded:
+--- STUDY CONTEXT START ---
+${context || "(No document context provided yet.)"}
+--- STUDY CONTEXT END ---
+
+RULES:
+1. Answer questions ONLY using information from the study context above.
+2. Use simple, clear, dyslexia-friendly language.
+3. Keep responses concise (2-4 sentences) unless the student asks for more detail.
+4. If the student asks about something NOT in the context, say so honestly and redirect them.
+5. Be encouraging, patient, and supportive.
+6. Use analogies and examples from everyday life to explain complex ideas.
+7. NEVER hallucinate facts or add information not present in the study material.`;
 
     const userPrompt = history
-      ? `Conversation so far:\n${history}\n\nStudent: ${message}`
-      : message;
+      ? `Conversation history:\n${history}\n\nStudent's new question: ${message}`
+      : `Student asks: ${message}`;
 
     const schema = {
       type: "OBJECT",
@@ -1396,12 +1536,22 @@ router.post("/text-to-speech", async (req, res) => {
     const { text } = req.body;
     if (!text) return res.status(400).json({ error: "Text is required" });
 
+    if (!ELEVENLABS_API_KEY) {
+      console.warn("[TTS] ⚠️ ELEVENLABS_API_KEY is not set. Text-to-speech is unavailable.");
+      return res.status(503).json({
+        error: "Text-to-speech is currently unavailable. Please configure your ElevenLabs API key in server/.env.",
+      });
+    }
+
     const audioStream = await generateTTS(ELEVENLABS_API_KEY, text);
     res.setHeader("Content-Type", "audio/mpeg");
     audioStream.pipe(res);
   } catch (err) {
     console.error("[TTS Error]:", err);
-    res.status(500).json({ error: err.message });
+    const statusCode = err.message.includes("429") ? 429
+      : err.message.includes("402") ? 402
+      : 500;
+    res.status(statusCode).json({ error: err.message });
   }
 });
 

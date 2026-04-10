@@ -1,7 +1,7 @@
 {
-  "name": "lumina-api",
+  "name": "klaro-ai-api",
   "version": "1.0.0",
-  "description": "Atomic Orchestration API for Lumina OS - Multi-Model AI Study Assistant",
+  "description": "Atomic Orchestration API for Klaro AI - Multi-Model AI Study Assistant",
   "main": "index.js",
   "type": "module",
   "author": "Ayoub Hamrouni",
@@ -27,7 +27,7 @@
   "scripts": {
     "start": "node index.js",
     "fix-port": "fuser -k 3001/tcp || true",
-    "dev": "npm run fix-port && node --watch index.js"
+    "dev": "node --watch index.js"
   },
   "dependencies": {
     "express": "^4.18.2",

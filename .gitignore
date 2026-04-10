@@ -17,6 +17,7 @@ build/
 .env.local
 .env.production
 .env.development
+server/.env
 
 # Logs
 logs/
@@ -73,7 +74,7 @@ dist
 
 # Gatsby files
 .cache/
-public
+# public (do not ignore — contains branding assets)
 
 # Storybook build outputs
 .out

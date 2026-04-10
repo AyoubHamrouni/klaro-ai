@@ -50,12 +50,12 @@ export function Header({
           <div className="w-10 h-10 rounded-xl bg-white flex items-center justify-center pulse-glow overflow-hidden border border-primary/20">
             <img
               src="/branding/logo.png"
-              alt="Lumina Logo"
+              alt="Klaro AI Logo"
               className="w-full h-full object-contain p-1.5"
             />
           </div>
           <span className="font-black text-xl tracking-tighter bg-clip-text text-transparent bg-gradient-to-r from-primary via-indigo-500 to-indigo-400 uppercase">
-            Lumina OS
+            Klaro AI
           </span>
         </div>
 

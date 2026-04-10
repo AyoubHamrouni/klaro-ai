@@ -137,7 +137,7 @@ ${sentences
     const url = URL.createObjectURL(blob);
     const link = document.createElement("a");
     link.href = url;
-    link.download = "study-buddy-visual-digest.txt";
+    link.download = "klaro-ai-visual-digest.txt";
     link.click();
     URL.revokeObjectURL(url);
   };

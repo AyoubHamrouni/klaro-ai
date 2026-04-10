@@ -466,6 +466,7 @@ export default function StudySession() {
                     ) : (
                       <FlashcardMode
                         keyTerms={session.result.keyTerms}
+                        flashcards={session.result.flashcards}
                         onClose={() => setPracticeMode("quiz")}
                       />
                     )}

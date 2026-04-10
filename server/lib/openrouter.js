@@ -42,7 +42,7 @@ export async function generateOpenRouterContent(
       headers: {
         Authorization: `Bearer ${apiKey}`,
         "HTTP-Referer": "https://github.com/AyoubHamrouni/lumina-os",
-        "X-Title": "Lumina OS",
+        "X-Title": "Klaro AI",
         "Content-Type": "application/json",
       },
       body: JSON.stringify({

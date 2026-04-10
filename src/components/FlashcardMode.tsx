@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useMemo } from "react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { ChevronLeft, ChevronRight, RotateCcw } from "lucide-react";
@@ -6,18 +6,39 @@ import { motion } from "framer-motion";
 
 interface FlashcardModeProps {
   keyTerms: { term: string; definition: string }[];
+  flashcards?: { question: string; answer: string }[];
   onClose: () => void;
 }
 
-export function FlashcardMode({ keyTerms, onClose }: FlashcardModeProps) {
+export function FlashcardMode({ keyTerms, flashcards, onClose }: FlashcardModeProps) {
   const [index, setIndex] = useState(0);
   const [flipped, setFlipped] = useState(false);
 
-  const current = keyTerms[index];
+  // Use AI-generated flashcards when available, fall back to keyTerms
+  const cards = useMemo(() => {
+    if (flashcards && flashcards.length > 0) {
+      return flashcards.map((fc) => ({
+        front: fc.question,
+        back: fc.answer,
+        frontLabel: "Question",
+        backLabel: "Answer",
+        hint: "Click to reveal answer",
+      }));
+    }
+    return keyTerms.map((kt) => ({
+      front: kt.term,
+      back: kt.definition,
+      frontLabel: "Term",
+      backLabel: "Definition",
+      hint: "Click to reveal definition",
+    }));
+  }, [flashcards, keyTerms]);
+
+  const current = cards[index];
 
   const next = () => {
     setFlipped(false);
-    setIndex((i) => Math.min(i + 1, keyTerms.length - 1));
+    setIndex((i) => Math.min(i + 1, cards.length - 1));
   };
 
   const prev = () => {
@@ -25,13 +46,20 @@ export function FlashcardMode({ keyTerms, onClose }: FlashcardModeProps) {
     setIndex((i) => Math.max(i - 1, 0));
   };
 
+  if (!current) return null;
+
   return (
     <div className="space-y-6">
       <div className="flex items-center justify-between">
         <div className="flex items-center gap-2">
           <Badge variant="outline" className="bg-primary/5 border-primary/20">
-            Card {index + 1} of {keyTerms.length}
+            Card {index + 1} of {cards.length}
           </Badge>
+          {flashcards && flashcards.length > 0 && (
+            <Badge variant="outline" className="bg-accent/5 border-accent/20 text-accent">
+              AI Generated
+            </Badge>
+          )}
         </div>
         <Button
           variant="ghost"
@@ -64,13 +92,13 @@ export function FlashcardMode({ keyTerms, onClose }: FlashcardModeProps) {
             style={{ backfaceVisibility: "hidden" }}
           >
             <span className="text-[10px] uppercase tracking-[0.2em] text-primary font-bold mb-4 opacity-70">
-              Term
+              {current.frontLabel}
             </span>
-            <h3 className="text-2xl md:text-3xl font-bold tracking-tight">
-              {current.term}
+            <h3 className={`font-bold tracking-tight ${current.frontLabel === "Question" ? "text-lg md:text-xl leading-relaxed" : "text-2xl md:text-3xl"}`}>
+              {current.front}
             </h3>
             <p className="mt-6 text-xs text-muted-foreground opacity-50 font-medium">
-              Click to reveal definition
+              {current.hint}
             </p>
           </div>
 
@@ -83,10 +111,10 @@ export function FlashcardMode({ keyTerms, onClose }: FlashcardModeProps) {
             }}
           >
             <span className="text-[10px] uppercase tracking-[0.2em] text-accent font-bold mb-4 opacity-70">
-              Definition
+              {current.backLabel}
             </span>
             <p className="font-dyslexic text-lg md:text-xl leading-relaxed text-muted-foreground">
-              {current.definition}
+              {current.back}
             </p>
           </div>
         </motion.div>
@@ -125,7 +153,7 @@ export function FlashcardMode({ keyTerms, onClose }: FlashcardModeProps) {
             e.stopPropagation();
             next();
           }}
-          disabled={index === keyTerms.length - 1}
+          disabled={index === cards.length - 1}
           className="rounded-full w-12 h-12 shadow-lg border-white/20"
         >
           <ChevronRight className="w-6 h-6" />

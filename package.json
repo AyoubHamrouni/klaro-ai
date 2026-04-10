@@ -1,8 +1,8 @@
 {
-  "name": "lumina-os",
+  "name": "klaro-ai",
   "private": true,
   "version": "1.0.0",
-  "description": "Lumina OS - Immersive Study Operating System for Neurodivergent Learners",
+  "description": "Klaro AI - Immersive Study Operating System for Neurodivergent Learners",
   "type": "module",
   "author": "Ayoub Hamrouni",
   "license": "MIT",

@@ -1,5 +1,5 @@
 /**
- * Error Handling Middleware for Lumina OS API
+ * Error Handling Middleware for Klaro AI API
  *
  * Provides centralized error handling with appropriate HTTP status codes
  * and user-friendly error messages for production environments.

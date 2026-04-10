@@ -25,6 +25,7 @@ export interface SummaryResult {
   difficulty_level: string;
   tasks?: string[];
   mindmapData?: string;
+  flashcards?: { question: string; answer: string }[];
 }
 
 interface ResultsTabsProps {
@@ -96,7 +97,7 @@ export function ResultsTabs({ result, originalWordCount }: ResultsTabsProps) {
     printWindow.document.write(`
       <html>
         <head>
-          <title>Lumina Summary</title>
+          <title>Klaro AI Summary</title>
           <style>
             body { font-family: Arial, sans-serif; line-height: 1.7; padding: 2.5rem; color: #0f172a; max-width: 820px; margin: 0 auto; }
             h1, h2 { color: #4f46e5; }
@@ -104,7 +105,7 @@ export function ResultsTabs({ result, originalWordCount }: ResultsTabsProps) {
           </style>
         </head>
         <body>
-          <h1>Lumina Summary</h1>
+          <h1>Klaro AI Summary</h1>
           <p>${result.summary}</p>
           <h2>Key Terms</h2>
           ${result.keyTerms

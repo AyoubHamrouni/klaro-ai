@@ -32,6 +32,10 @@ export async function generateTTS(
     throw new Error("Text is required for text-to-speech");
   }
 
+  // Truncate to prevent payload-too-large errors
+  const MAX_TTS_CHARS = 5000;
+  const sanitizedText = text.trim().slice(0, MAX_TTS_CHARS);
+
   const url = `https://api.elevenlabs.io/v1/text-to-speech/${voiceId}?output_format=mp3_44100_128`;
 
   try {
@@ -42,13 +46,13 @@ export async function generateTTS(
         "Content-Type": "application/json",
       },
       body: JSON.stringify({
-        text: text.trim(),
+        text: sanitizedText,
         model_id: "eleven_multilingual_v2",
         voice_settings: {
           stability: 0.6,
           similarity_boost: 0.75,
-          speed: 0.9,
         },
+        speed: 0.9,
       }),
     });
 

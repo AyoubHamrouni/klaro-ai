@@ -110,7 +110,7 @@ export function MindMap({ mindmapData, mode = "inline" }: MindMapProps) {
     const url = URL.createObjectURL(blob);
     const link = document.createElement("a");
     link.href = url;
-    link.download = "study-buddy-concept-map.txt";
+    link.download = "klaro-ai-concept-map.txt";
     link.click();
     URL.revokeObjectURL(url);
   };

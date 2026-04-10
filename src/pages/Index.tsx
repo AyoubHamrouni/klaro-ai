@@ -186,7 +186,7 @@ export default function Index() {
                   className="inline-flex items-center gap-2 px-6 py-2 rounded-full bg-primary/5 backdrop-blur-md border border-primary/10 text-[11px] font-black uppercase tracking-[0.2em] text-primary shadow-2xl shadow-primary/10"
                 >
                   <Sparkles className="w-4 h-4 fill-primary/20" />
-                  Lumina OS Study Flow
+                  Klaro AI Study Flow
                 </motion.div>
                 <div className="space-y-1">
                   <h1 className="text-6xl md:text-9xl font-black tracking-tighter leading-[0.85] bg-clip-text text-transparent bg-gradient-to-b from-foreground to-foreground/40">
@@ -198,7 +198,7 @@ export default function Index() {
                   </h1>
                 </div>
                 <p className="text-lg md:text-2xl text-muted-foreground font-medium max-w-3xl mx-auto leading-relaxed opacity-80">
-                  Import documents, share links, or paste text. Lumina
+                  Import documents, share links, or paste text. Klaro AI
                   transforms any material into a structured study session with
                   summaries, visuals, and practice.
                 </p>
@@ -277,7 +277,7 @@ export default function Index() {
               >
                 <div className="text-center mb-12">
                   <p className="text-xs font-black uppercase tracking-[0.2em] text-muted-foreground mb-3">
-                    The Lumina Workflow
+                    The Klaro Workflow
                   </p>
                   <h2 className="text-3xl md:text-4xl font-black tracking-tight">
                     From chaos to clarity

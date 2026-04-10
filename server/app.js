@@ -1,5 +1,5 @@
 /**
- * Lumina OS Express Application
+ * Klaro AI Express Application
  *
  * Main Express application setup with middleware, routes, and error handling.
  * Provides RESTful API endpoints for AI-powered study assistance.

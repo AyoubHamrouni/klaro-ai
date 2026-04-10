@@ -36,7 +36,7 @@ export function StudyChat({ context }: StudyChatProps) {
     {
       role: "assistant",
       content:
-        "Hi! I'm your study buddy. Once you summarize a lesson, I can help you understand it better. What are we studying today?",
+        "Hi! I'm Klaro, your study companion. Once you summarize a lesson, I can help you understand it better. What are we studying today?",
     },
   ]);
   const [input, setInput] = useState("");
@@ -162,7 +162,7 @@ export function StudyChat({ context }: StudyChatProps) {
       void speakReply(data.reply);
     } catch (err) {
       const fallback =
-        "I'm having a little trouble connecting to my brain right now. Please try again in a second!";
+        "I'm having a little trouble connecting right now. Please check your API keys in server/.env and try again!";
       setMessages((prev) => [
         ...prev,
         {
@@ -291,7 +291,7 @@ export function StudyChat({ context }: StudyChatProps) {
                 </div>
                 <div>
                   <h4 className="font-extrabold text-sm tracking-tight">
-                    Study Companion
+                    Klaro AI
                   </h4>
                   <div className="flex items-center gap-1.5">
                     <span
@@ -382,7 +382,7 @@ export function StudyChat({ context }: StudyChatProps) {
                           <User className="w-3 h-3" />
                         )}
                         <span className="text-[9px] font-black uppercase tracking-widest">
-                          {msg.role === "assistant" ? "Buddy" : "Student"}
+                          {msg.role === "assistant" ? "Klaro" : "Student"}
                         </span>
                       </div>
                       <p className="font-medium whitespace-pre-wrap">

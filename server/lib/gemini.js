@@ -2,7 +2,7 @@
  * Google Gemini AI Integration
  *
  * Provides integration with Google's Gemini AI models for text generation
- * and analysis. Used as the primary AI provider in the Lumina OS system.
+ * and analysis. Used as the primary AI provider in the Klaro AI system.
  *
  * @author Ayoub Hamrouni
  * @version 1.0.0
