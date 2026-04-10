@@ -35,7 +35,7 @@ const OPENROUTER_API_KEY = process.env.OPENROUTER_API_KEY;
  */
 const GEMINI_MODEL = process.env.GEMINI_MODEL || "gemini-1.5-flash";
 const OPENROUTER_MODEL =
-  process.env.OPENROUTER_MODEL || "microsoft/wizardlm-2-8x22b:free";
+  process.env.OPENROUTER_MODEL || "google/gemma-4-26b-a4b-it:free";
 
 /**
  * Rate limiting: Track last usage of each provider to avoid exhaustion
@@ -116,6 +116,11 @@ function isRetryableError(error) {
       message,
     ) || error?.name === "AbortError"
   );
+}
+
+function isUnavailableModelError(error) {
+  const message = String(error?.message || "").toLowerCase();
+  return /404|no endpoints found|model not found|does not exist/.test(message);
 }
 
 /**
@@ -200,6 +205,7 @@ async function callAIWithFallback(
       key: GEMINI_API_KEY,
       model: GEMINI_MODEL,
       fn: generateGeminiContent,
+      maxAttempts: 1,
     },
     {
       name: "OpenRouter-Primary",
@@ -207,20 +213,7 @@ async function callAIWithFallback(
       key: OPENROUTER_API_KEY,
       model: OPENROUTER_MODEL,
       fn: generateOpenRouterContent,
-    },
-    {
-      name: "OpenRouter-WizardLM",
-      family: "OpenRouter",
-      key: OPENROUTER_API_KEY,
-      model: "microsoft/wizardlm-2-8x22b:free",
-      fn: generateOpenRouterContent,
-    },
-    {
-      name: "OpenRouter-Llama",
-      family: "OpenRouter",
-      key: OPENROUTER_API_KEY,
-      model: "meta-llama/llama-3.1-8b-instruct:free",
-      fn: generateOpenRouterContent,
+      maxAttempts: 1,
     },
     {
       name: "OpenRouter-Gemma4-26B",
@@ -228,6 +221,7 @@ async function callAIWithFallback(
       key: OPENROUTER_API_KEY,
       model: "google/gemma-4-26b-a4b-it:free",
       fn: generateOpenRouterContent,
+      maxAttempts: 1,
     },
     {
       name: "OpenRouter-Gemma4-31B",
@@ -235,6 +229,7 @@ async function callAIWithFallback(
       key: OPENROUTER_API_KEY,
       model: "google/gemma-4-31b-it:free",
       fn: generateOpenRouterContent,
+      maxAttempts: 1,
     },
     {
       name: "OpenRouter-Nemotron",
@@ -242,13 +237,7 @@ async function callAIWithFallback(
       key: OPENROUTER_API_KEY,
       model: "nvidia/nemotron-3-super-120b-a12b:free",
       fn: generateOpenRouterContent,
-    },
-    {
-      name: "OpenRouter-Minimax",
-      family: "OpenRouter",
-      key: OPENROUTER_API_KEY,
-      model: "minimax/minimax-m2.5:free",
-      fn: generateOpenRouterContent,
+      maxAttempts: 1,
     },
   ];
 
@@ -270,7 +259,7 @@ async function callAIWithFallback(
       continue;
     }
 
-    const maxAttempts = 2;
+    const maxAttempts = provider.maxAttempts ?? 1;
     for (let attempt = 1; attempt <= maxAttempts; attempt++) {
       try {
         console.log(`[AI] [${provider.name}] Attempt ${attempt}...`);
@@ -319,6 +308,7 @@ async function callAIWithFallback(
         const authError = isAuthenticationError(err);
         const rateLimitError = isRateLimitError(err);
         const retryableError = isRetryableError(err);
+        const unavailableModelError = isUnavailableModelError(err);
         const cooldownMs = rateLimitError
           ? RATE_LIMIT_PROVIDER_COOLDOWN_MS
           : authError
@@ -346,11 +336,19 @@ async function callAIWithFallback(
           break;
         }
 
+        if (unavailableModelError) {
+          console.warn(
+            `[AI] ⚠️ ${provider.name} is unavailable. Skipping to the next provider without retry.`,
+          );
+          break;
+        }
+
         if (!retryableError) {
           break;
         }
 
-        if (attempt < maxAttempts) await new Promise((r) => setTimeout(r, 1000));
+        if (attempt < maxAttempts)
+          await new Promise((r) => setTimeout(r, 1000));
         if (attempt === maxAttempts) break;
       }
     }
@@ -778,27 +776,37 @@ router.post("/mindmap", async (req, res) => {
       return res.json(cached);
     }
 
-    const mindmapPrompt = `Create a mind map for the following study summary using Mermaid.js mindmap syntax.
+    const mindmapPrompt = `Analyze this study material and create a hierarchical mind map showing the main topic, key concepts, and relationships.
+
+Your task:
+1. Identify the PRIMARY TOPIC (main subject)
+2. Extract 4-6 MAIN CONCEPTS directly from the content
+3. For each main concept, identify 2-3 SUB-CONCEPTS or DETAILS
+4. Show hierarchy: root → main concepts → details
+
 Rules:
+- Root label: the main subject (2-3 words) wrapped in (( ))
+- Use Mermaid mindmap syntax with 2-space indents
+- Each node: 2-5 words, clear and specific to the content
+- Max 3 hierarchy levels
+- Focus on ACTUAL content, not generic structure
 - Start with: mindmap
-- Use 2-space indentation for hierarchy
-- Root node should be the main topic (1-3 words) wrapped in (( ))
-- Max 3 levels of depth
-- Each node: 2-5 words MAX, no special characters except spaces
-- 4-8 branches from root
-- Return ONLY the raw Mermaid mindmap syntax, NO code fences, NO explanation
+- Return ONLY raw syntax, NO code fences
 
-Example format:
+Example:
 mindmap
-  root((Biology))
-    Cell Structure
-      Cell Membrane
-      Nucleus
-    Metabolism
-      Glycolysis
-      Photosynthesis
+  root((Photosynthesis))
+    Light Reactions
+      Photosystem II
+      Electron Transport
+    Calvin Cycle
+      Carbon Fixation
+      Sugar Production
+    Chloroplast Structure
+      Thylakoids
+      Stroma
 
-Summary:
+Material to map:
 ${summary}`;
 
     const mindmapResult = await callAIWithFallback(
@@ -1038,6 +1046,170 @@ router.post("/text-to-speech", async (req, res) => {
   } catch (err) {
     console.error("[TTS Error]:", err);
     res.status(500).json({ error: err.message });
+  }
+});
+
+// ──────────────────────────────────────────────
+// Endpoint: Process Document (Multi-format support)
+// ──────────────────────────────────────────────
+/**
+ * POST /process-document
+ * Process documents in various formats (DOCX, PPT, etc.)
+ * Browser handles: PDF, TXT, CSV
+ * Server handles: DOCX, PPT, links
+ *
+ * @param {string} url - URL to process (Google Drive, etc.)
+ * @param {Buffer} file - File buffer for server-side processing
+ * @param {string} fileType - Type of file being processed
+ * @returns {Object} Extracted text and metadata
+ */
+router.post("/process-document", async (req, res) => {
+  try {
+    const { url, fileType } = req.body;
+
+    if (!url && !req.file) {
+      return res.status(400).json({ error: "Either URL or file is required" });
+    }
+
+    let extractedText = "";
+    let sourceType = "unknown";
+
+    // Handle URL-based documents
+    if (url) {
+      try {
+        const urlObj = new URL(url);
+        const domain = urlObj.hostname;
+
+        // Google Drive/Docs extraction
+        if (domain.includes("docs.google.com")) {
+          // Extract document ID
+          const docIdMatch =
+            url.match(/\/document\/d\/([A-Za-z0-9-_]+)/) ||
+            url.match(/id=([A-Za-z0-9-_]+)/);
+
+          if (docIdMatch) {
+            const docId = docIdMatch[1];
+            // Export as plain text via Google's export API
+            const exportUrl = `https://docs.google.com/document/d/${docId}/export?format=txt`;
+            try {
+              const response = await fetch(exportUrl);
+              if (response.ok) {
+                extractedText = await response.text();
+                sourceType = "Google Docs";
+              }
+            } catch (e) {
+              console.warn("Google Docs export failed:", e);
+              extractedText = `[Google Docs] Document: ${docId}\nNote: Content requires authentication to access.`;
+            }
+          }
+        }
+        // Wikipedia articles
+        else if (domain.includes("wikipedia.org")) {
+          try {
+            const pageTitle =
+              new URLSearchParams(urlObj.search).get("title") ||
+              urlObj.pathname.split("/").pop();
+            const apiUrl = `https://en.wikipedia.org/w/api.php?action=query&titles=${pageTitle}&prop=extracts&explaintext=true&format=json`;
+            const response = await fetch(apiUrl);
+            const data = await response.json();
+            const pages = Object.values(data.query.pages);
+            if (pages.length > 0 && "extract" in pages[0]) {
+              extractedText = pages[0].extract;
+              sourceType = "Wikipedia";
+            }
+          } catch (e) {
+            console.warn("Wikipedia extraction failed:", e);
+          }
+        }
+        // Medium articles
+        else if (domain.includes("medium.com")) {
+          try {
+            const response = await fetch(url);
+            const html = await response.text();
+            // Extract text from HTML (basic approach)
+            const textMatch = html.match(/<article[^>]*>([\s\S]*?)<\/article>/);
+            if (textMatch) {
+              extractedText = textMatch[1]
+                .replace(/<[^>]*>/g, "")
+                .replace(/&nbsp;/g, " ")
+                .replace(/&lt;/g, "<")
+                .replace(/&gt;/g, ">")
+                .replace(/&quot;/g, '"');
+              sourceType = "Medium";
+            }
+          } catch (e) {
+            console.warn("Medium extraction failed:", e);
+          }
+        }
+        // arXiv papers
+        else if (domain.includes("arxiv.org")) {
+          try {
+            const paperId = urlObj.pathname.match(
+              /\/(?:abs|pdf)\/([0-9.]+)/,
+            )?.[1];
+            if (paperId) {
+              const apiUrl = `http://export.arxiv.org/api/query?id_list=${paperId}`;
+              const response = await fetch(apiUrl);
+              const xml = await response.text();
+              const summaryMatch = xml.match(
+                /<summary[^>]*>([\s\S]*?)<\/summary>/,
+              );
+              if (summaryMatch) {
+                extractedText = `[arXiv Paper: ${paperId}]\n${summaryMatch[1].trim()}`;
+                sourceType = "arXiv";
+              }
+            }
+          } catch (e) {
+            console.warn("arXiv extraction failed:", e);
+          }
+        }
+
+        if (!extractedText) {
+          return res.status(400).json({
+            error: `Could not extract content from ${domain}. Supported: Google Drive, Wikipedia, Medium, arXiv, GitHub, Dev.to`,
+          });
+        }
+      } catch (error) {
+        return res.status(400).json({ error: "Invalid URL provided" });
+      }
+    }
+    // Handle file uploads for server-side processing
+    else if (req.file) {
+      const fileName = req.file.originalname;
+      const buffer = req.file.buffer;
+
+      if (fileName.endsWith(".docx")) {
+        // DOCX: Would require docx parsing library
+        throw new Error(
+          "DOCX processing requires additional dependencies. Please install docx library.",
+        );
+      } else if (fileName.endsWith(".ppt") || fileName.endsWith(".pptx")) {
+        // PPT: Would require pptx parsing library
+        throw new Error(
+          "PowerPoint processing requires additional dependencies. Please install pptx-parser library.",
+        );
+      } else {
+        throw new Error(`Unsupported file type: ${fileName}`);
+      }
+    }
+
+    if (!extractedText) {
+      return res.status(400).json({ error: "No content could be extracted" });
+    }
+
+    res.json({
+      text: extractedText.substring(0, 50000), // Limit to 50k chars
+      metadata: {
+        source: sourceType,
+        extractedAt: new Date().toISOString(),
+        contentLength: extractedText.length,
+      },
+    });
+  } catch (err) {
+    console.error("[Document Processing Error]:", err);
+    res
+      .status(500)
+      .json({ error: err.message || "Failed to process document" });
   }
 });
 

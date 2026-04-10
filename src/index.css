@@ -80,8 +80,9 @@
       radial-gradient(at 0% 0%, hsla(262, 83%, 58%, 0.05) 0px, transparent 50%),
       radial-gradient(at 100% 100%, hsla(240, 59%, 61%, 0.05) 0px, transparent 50%);
     background-attachment: fixed;
-    overflow: hidden;
-    overscroll-behavior: none;
+    overflow-x: hidden;
+    overflow-y: auto;
+    overscroll-behavior-y: contain;
   }
 
   .glass-card {
