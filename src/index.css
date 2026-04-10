@@ -69,6 +69,7 @@
 
   html {
     scroll-behavior: smooth;
+    overflow-y: auto;
   }
 
   body {
@@ -80,6 +81,7 @@
     background-attachment: fixed;
     min-height: 100vh;
     overflow-x: hidden;
+    overflow-y: auto;
   }
 
   #root {

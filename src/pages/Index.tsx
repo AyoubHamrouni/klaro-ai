@@ -104,7 +104,7 @@ export default function Index() {
 
   return (
     <div
-      className={`min-h-screen w-full relative transition-colors duration-700 ${dyslexicFont ? "font-dyslexic" : ""} ${fontScaleClass} bg-background`}
+      className={`relative w-full transition-colors duration-700 ${dyslexicFont ? "font-dyslexic" : ""} ${fontScaleClass} bg-background`}
     >
       {/* Background Elements - Fixed layer for stability */}
       <div className="fixed inset-0 pointer-events-none z-0 overflow-hidden">
