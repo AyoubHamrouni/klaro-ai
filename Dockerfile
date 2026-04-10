@@ -36,6 +36,11 @@ RUN addgroup -g 1001 -S nodejs && \
 
 WORKDIR /app
 
+# Set production environment
+ENV NODE_ENV=production
+ENV PORT=8080
+ENV FRONTEND_ORIGIN=""
+
 # Install production deps only for backend
 COPY server/package*.json ./
 RUN npm install --omit=dev && npm cache clean --force

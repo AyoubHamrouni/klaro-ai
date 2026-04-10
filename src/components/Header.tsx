@@ -11,6 +11,7 @@ import {
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { motion } from "framer-motion";
+import { useNavigate } from "react-router-dom";
 
 interface HeaderProps {
   dyslexicFont?: boolean;
@@ -39,6 +40,8 @@ export function Header({
   onOpenVault,
   hasResult,
 }: HeaderProps) {
+  const navigate = useNavigate();
+
   return (
     <motion.header
       initial={{ opacity: 0, y: -20 }}
@@ -46,7 +49,10 @@ export function Header({
       className="glass-header z-50"
     >
       <div className="max-w-7xl mx-auto px-6 h-16 flex items-center justify-between">
-        <div className="flex items-center gap-3 group px-4 py-1.5 rounded-2xl hover:bg-white/5 transition-all cursor-pointer">
+        <div 
+          onClick={() => navigate("/")}
+          className="flex items-center gap-3 group px-4 py-1.5 rounded-2xl hover:bg-white/5 transition-all cursor-pointer"
+        >
           <div className="w-10 h-10 rounded-xl bg-white flex items-center justify-center pulse-glow overflow-hidden border border-primary/20">
             <img
               src="/branding/logo.png"

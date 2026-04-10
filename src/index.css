@@ -67,22 +67,19 @@
     transition: background-color 0.3s ease, border-color 0.3s ease;
   }
 
-  html,
-  body,
-  #root {
-    height: 100%;
+  html {
+    scroll-behavior: smooth;
   }
 
   body {
-    @apply bg-background text-foreground min-h-screen;
+    @apply bg-background text-foreground;
     font-family: 'Lexend', 'Atkinson Hyperlegible', sans-serif;
     background-image:
       radial-gradient(at 0% 0%, hsla(194, 62%, 53%, 0.06) 0px, transparent 42%),
       radial-gradient(at 100% 100%, hsla(228, 52%, 54%, 0.07) 0px, transparent 45%);
     background-attachment: fixed;
+    min-height: 100vh;
     overflow-x: hidden;
-    overflow-y: auto;
-    overscroll-behavior-y: contain;
   }
 
   .glass-card {

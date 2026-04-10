@@ -41,18 +41,37 @@ function parseAllowedOrigins() {
 const allowedOrigins = parseAllowedOrigins();
 
 function isAllowedOrigin(origin) {
+  // Allow same-origin requests (origin is undefined)
   if (!origin) return true;
 
+  // Allow localhost for development
   if (/^https?:\/\/(localhost|127\.0\.0\.1)(:\d+)?$/i.test(origin)) {
     return true;
   }
 
-  return allowedOrigins.has(origin);
+  // Allow production origins from env
+  if (allowedOrigins.has(origin)) {
+    return true;
+  }
+
+  // Permissive CORS in production if no specific origins are defined
+  // This helps when the deployment URL is dynamic (like Cloud Run)
+  if (process.env.NODE_ENV === "production" && allowedOrigins.size === 0) {
+    return true;
+  }
+
+  return false;
 }
 
 const corsOptions = {
   origin(origin, callback) {
     if (isAllowedOrigin(origin)) {
+      callback(null, true);
+      return;
+    }
+
+    // In production, be slightly more permissive to avoid white-screen issues
+    if (process.env.NODE_ENV === "production") {
       callback(null, true);
       return;
     }
@@ -73,9 +92,7 @@ const corsOptions = {
  * CORS middleware
  * Allows cross-origin requests from frontend applications
  */
-app.use(
-  cors(corsOptions),
-);
+app.use(cors(corsOptions));
 
 app.options("*", cors(corsOptions));
 
@@ -128,15 +145,37 @@ app.use("/", studyRoutes);
 
 /**
  * Serve the built Vite frontend statically and resolve React Router
+ * Tries both root dist and server dist to handle different deployment structures
  */
-app.use(express.static(path.join(__dirname, "dist")));
+const distPath = path.join(__dirname, "dist");
+const rootDistPath = path.join(__dirname, "..", "dist");
+
+app.use(express.static(distPath));
+app.use(express.static(rootDistPath));
 
 // Fallback all other GET requests to the React index.html
 app.get("*", (req, res, next) => {
-  if (req.method !== "GET" || req.path.startsWith("/api")) {
+  // Do not serve index.html for missing assets or API calls
+  if (
+    req.method !== "GET" || 
+    req.path.startsWith("/api") || 
+    req.path.includes(".")
+  ) {
     return next();
   }
-  res.sendFile(path.join(__dirname, "dist", "index.html"));
+  
+  // Try sending from either dist location
+  const indexPath = path.join(distPath, "index.html");
+  res.sendFile(indexPath, (err) => {
+    if (err) {
+      const rootIndexPath = path.join(rootDistPath, "index.html");
+      res.sendFile(rootIndexPath, (rootErr) => {
+        if (rootErr) {
+          next();
+        }
+      });
+    }
+  });
 });
 
 // ==========================================

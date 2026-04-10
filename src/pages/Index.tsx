@@ -51,7 +51,8 @@ export default function Index() {
     setPendingPrompt(text);
 
     try {
-      const response = await fetch(`${import.meta.env.VITE_API_URL}/study-bundle`, {
+      const apiUrl = import.meta.env.VITE_API_URL || "";
+      const response = await fetch(`${apiUrl}/study-bundle`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ text }),
@@ -103,13 +104,13 @@ export default function Index() {
 
   return (
     <div
-      className={`min-h-[100dvh] relative overflow-x-hidden transition-colors duration-700 ${dyslexicFont ? "font-dyslexic" : ""} ${fontScaleClass} bg-background`}
+      className={`min-h-screen w-full relative overflow-x-hidden overflow-y-auto ${dyslexicFont ? "font-dyslexic" : ""} ${fontScaleClass} bg-background`}
     >
-      {/* Dynamic Interactive Background */}
+      {/* Fixed Background Elements */}
       <div className="fixed inset-0 pointer-events-none z-0 overflow-hidden">
         <motion.div 
           style={{ y: backgroundY, scale: backgroundScale }}
-          className="absolute inset-0 opacity-40 filter contrast-125 brightness-[0.85] mix-blend-screen"
+          className="absolute inset-0 opacity-30 filter contrast-125 brightness-[0.95]"
         >
           <img
             src="/branding/hero-bg.png"
@@ -135,37 +136,39 @@ export default function Index() {
         />
       </div>
 
-      <Header
-        hasResult={false}
-        onOpenVault={() => setIsVaultOpen(true)}
-        showRuler={showRuler}
-        setShowRuler={setShowRuler}
-        dyslexicFont={dyslexicFont}
-        setDyslexicFont={setDyslexicFont}
-        fontSize={fontSize}
-        setFontSize={setFontSize}
-        darkMode={darkMode}
-        setDarkMode={(nextValue) => setTheme(nextValue ? "dark" : "light")}
-      />
+      <div className="relative z-10">
+        <Header
+          hasResult={false}
+          onOpenVault={() => setIsVaultOpen(true)}
+          showRuler={showRuler}
+          setShowRuler={setShowRuler}
+          dyslexicFont={dyslexicFont}
+          setDyslexicFont={setDyslexicFont}
+          fontSize={fontSize}
+          setFontSize={setFontSize}
+          darkMode={darkMode}
+          setDarkMode={(nextValue) => setTheme(nextValue ? "dark" : "light")}
+          onReset={() => navigate("/")}
+        />
 
-      <HistorySidebar
-        currentId={undefined}
-        isOpen={isVaultOpen}
-        onClose={() => setIsVaultOpen(false)}
-        onSelect={(item) => {
-          sessionStorage.setItem(
-            SESSION_STORAGE_KEY,
-            JSON.stringify({
-              historyCurrentId: item.id,
-              originalWordCount: item.originalText.split(/\s+/).length,
-              result: item.result,
-            }),
-          );
-          navigate("/study");
-        }}
-      />
+        <HistorySidebar
+          currentId={undefined}
+          isOpen={isVaultOpen}
+          onClose={() => setIsVaultOpen(false)}
+          onSelect={(item) => {
+            sessionStorage.setItem(
+              SESSION_STORAGE_KEY,
+              JSON.stringify({
+                historyCurrentId: item.id,
+                originalWordCount: item.originalText.split(/\s+/).length,
+                result: item.result,
+              }),
+            );
+            navigate("/study");
+          }}
+        />
 
-      <main className="min-h-[calc(100dvh-4rem)] pt-16 md:pt-20 pb-12">
+        <main className="pt-20 pb-20">
         <AnimatePresence mode="wait">
           {isLoading ? (
             <motion.div
