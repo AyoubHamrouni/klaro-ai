@@ -1,6 +1,6 @@
 import { motion } from "framer-motion";
 import type { ReactNode } from "react";
-import { BarChart2, TrendingUp, BookOpen, Hash, Zap } from "lucide-react";
+import { Sparkles, TrendingUp, BookOpen, Hash, Zap } from "lucide-react";
 
 interface VisualInfographicProps {
   summary: string;
@@ -96,14 +96,14 @@ export function VisualInfographic({
       <div className="glass-card rounded-[2.5rem] p-6 border-white/10 shadow-2xl">
         <div className="flex items-center gap-3 mb-5">
           <div className="p-2 rounded-xl bg-violet-500/15 border border-violet-500/20">
-            <BarChart2 className="w-5 h-5 text-violet-400" />
+            <Sparkles className="w-5 h-5 text-violet-400" />
           </div>
           <div>
             <h3 className="font-black text-lg tracking-tight">
-              Study Insights
+              Study Pattern
             </h3>
             <p className="text-xs text-muted-foreground font-medium">
-              Cognitive load analysis
+              Overview of the session
             </p>
           </div>
         </div>

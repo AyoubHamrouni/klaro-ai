@@ -1,6 +1,5 @@
-import { useState, useCallback } from "react";
+import { useState } from "react";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Progress } from "@/components/ui/progress";
 import { Button } from "@/components/ui/button";
@@ -19,7 +18,6 @@ import {
   Brain,
   Headphones,
   GraduationCap,
-  BarChart3,
   Copy,
   Check,
   Layers,
@@ -27,6 +25,7 @@ import {
   Sparkles,
   ChevronLeft,
   ChevronRight,
+  Target,
 } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
 import { toast } from "@/hooks/use-toast";
@@ -124,7 +123,7 @@ export function ResultsTabs({ result, originalWordCount }: ResultsTabsProps) {
       <div className="grid grid-cols-3 gap-4">
         <div className="glass-card p-4 flex items-center gap-3 rounded-2xl relative overflow-hidden group">
           <div className="absolute top-0 right-0 w-24 h-24 bg-primary/5 rounded-full -mr-8 -mt-8 transition-transform group-hover:scale-110" />
-          <BarChart3 className="w-8 h-8 text-primary shrink-0 relative z-10" />
+          <Target className="w-8 h-8 text-primary shrink-0 relative z-10" />
           <div className="relative z-10">
             <p className="text-2xl font-bold text-primary">
               {reductionPercent}%

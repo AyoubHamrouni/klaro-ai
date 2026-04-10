@@ -14,7 +14,6 @@ import {
   Layers,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
-import { ScrollArea } from "@/components/ui/scroll-area";
 import type { SummaryResult } from "@/components/ResultsTabs";
 
 type ActiveView = "study" | "practice" | "focus" | "visuals";
@@ -182,57 +181,55 @@ export function ActionPlan({
         </p>
       </div>
 
-      <ScrollArea className="h-[300px] pr-4">
-        <div className="space-y-3">
-          {!result ? (
-            <div className="flex flex-col items-center justify-center py-12 gap-4">
-              <Loader2 className="w-8 h-8 text-primary animate-spin" />
-              <p className="text-sm text-muted-foreground font-bold animate-pulse">
-                Waiting for a summary...
-              </p>
-            </div>
-          ) : (
-            <AnimatePresence mode="popLayout">
-              {tasks.map((task) => (
-                <motion.div
-                  key={task.id}
-                  layout
-                  initial={{ opacity: 0, x: -10 }}
-                  animate={{ opacity: 1, x: 0 }}
-                  exit={{ opacity: 0, scale: 0.95 }}
-                  onClick={() => toggleTask(task.id)}
-                  className={`group flex items-start gap-4 p-4 rounded-2xl cursor-pointer transition-all border ${
-                    task.completed
-                      ? "bg-success/5 border-success/20 opacity-70"
-                      : "bg-white/5 border-white/10 hover:bg-white/10 hover:border-white/20"
-                  } ${isAnimating ? "shadow-[0_0_0_1px_rgba(255,255,255,0.03)]" : ""}`}
-                >
-                  <div className="shrink-0 pt-0.5">
-                    {task.completed ? (
-                      <CheckCircle2 className="w-5 h-5 text-success" />
-                    ) : (
-                      <Circle className="w-5 h-5 text-muted-foreground/30 group-hover:text-primary transition-colors" />
-                    )}
+      <div className="space-y-3">
+        {!result ? (
+          <div className="flex flex-col items-center justify-center py-12 gap-4">
+            <Loader2 className="w-8 h-8 text-primary animate-spin" />
+            <p className="text-sm text-muted-foreground font-bold animate-pulse">
+              Waiting for a summary...
+            </p>
+          </div>
+        ) : (
+          <AnimatePresence mode="popLayout">
+            {tasks.map((task) => (
+              <motion.div
+                key={task.id}
+                layout
+                initial={{ opacity: 0, x: -10 }}
+                animate={{ opacity: 1, x: 0 }}
+                exit={{ opacity: 0, scale: 0.95 }}
+                onClick={() => toggleTask(task.id)}
+                className={`group flex items-start gap-4 p-4 rounded-2xl cursor-pointer transition-all border ${
+                  task.completed
+                    ? "bg-success/5 border-success/20 opacity-70"
+                    : "bg-white/5 border-white/10 hover:bg-primary/5 hover:border-primary/20"
+                } ${isAnimating ? "shadow-[0_0_0_1px_rgba(255,255,255,0.03)]" : ""}`}
+              >
+                <div className="shrink-0 pt-0.5">
+                  {task.completed ? (
+                    <CheckCircle2 className="w-5 h-5 text-success" />
+                  ) : (
+                    <Circle className="w-5 h-5 text-muted-foreground/30 group-hover:text-primary transition-colors" />
+                  )}
+                </div>
+                <div className="space-y-1">
+                  <div className="flex items-center gap-2">
+                    <span className="w-6 h-6 rounded-full bg-primary/10 text-primary flex items-center justify-center">
+                      {task.icon}
+                    </span>
+                    <span
+                      className={`text-sm font-bold leading-snug ${task.completed ? "line-through text-muted-foreground" : "text-foreground"}`}
+                    >
+                      {task.text}
+                    </span>
                   </div>
-                  <div className="space-y-1">
-                    <div className="flex items-center gap-2">
-                      <span className="w-6 h-6 rounded-full bg-primary/10 text-primary flex items-center justify-center">
-                        {task.icon}
-                      </span>
-                      <span
-                        className={`text-sm font-bold leading-snug ${task.completed ? "line-through text-muted-foreground" : "text-foreground"}`}
-                      >
-                        {task.text}
-                      </span>
-                    </div>
-                    <p className="text-xs text-muted-foreground pl-8">{task.hint}</p>
-                  </div>
-                </motion.div>
-              ))}
-            </AnimatePresence>
-          )}
-        </div>
-      </ScrollArea>
+                  <p className="text-xs text-muted-foreground pl-8">{task.hint}</p>
+                </div>
+              </motion.div>
+            ))}
+          </AnimatePresence>
+        )}
+      </div>
 
       {result && (
         <Button

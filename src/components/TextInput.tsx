@@ -2,7 +2,6 @@ import { useState, useCallback, useRef } from "react";
 import { Upload, FileText, Sparkles, AlertCircle } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
-import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { SAMPLE_TEXT } from "@/lib/sample-text";
 import { extractTextFromPDF, countWords } from "@/lib/pdf-parser";
@@ -19,7 +18,8 @@ export function TextInput({ onSubmit, isLoading }: TextInputProps) {
   const [text, setText] = useState("");
   const [dragActive, setDragActive] = useState(false);
   const [error, setError] = useState("");
-  const [fileName, setFileName] = useState("");
+  const [sourceLabel, setSourceLabel] = useState("");
+  const [sourceType, setSourceType] = useState<"file" | "sample" | "">("");
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   const wordCount = countWords(text);
@@ -28,7 +28,8 @@ export function TextInput({ onSubmit, isLoading }: TextInputProps) {
   const handleTextChange = (value: string) => {
     setText(value);
     setError("");
-    setFileName("");
+    setSourceLabel("");
+    setSourceType("");
   };
 
   const handleFileUpload = useCallback(async (file: File) => {
@@ -44,21 +45,28 @@ export function TextInput({ onSubmit, isLoading }: TextInputProps) {
     }
     try {
       setError("");
-      setFileName(file.name);
+      setSourceLabel(file.name);
+      setSourceType("file");
       const extracted = await extractTextFromPDF(file);
       if (!extracted.trim()) {
         setError(
           "Could not extract text from this PDF. It may be image-based. Try pasting the text instead.",
         );
-        setFileName("");
+        setSourceLabel("");
+        setSourceType("");
         return;
       }
       setText(extracted);
-    } catch {
+    } catch (err) {
+      const message =
+        err instanceof Error ? err.message : "Failed to read the PDF.";
       setError(
-        "Failed to read the PDF. Please try a different file or paste text directly.",
+        message === "This PDF appears to be image-based and OCR could not extract readable text."
+          ? "This PDF is image-based. OCR could not extract readable text, so please try a different scan or paste the text directly."
+          : "Failed to read the PDF. Please try a different file or paste text directly.",
       );
-      setFileName("");
+      setSourceLabel("");
+      setSourceType("");
     }
   }, []);
 
@@ -135,13 +143,17 @@ export function TextInput({ onSubmit, isLoading }: TextInputProps) {
         {/* Word count & file info */}
         <div className="flex flex-wrap items-center justify-between gap-4 px-2">
           <div className="flex items-center gap-3">
-            {fileName ? (
+            {sourceLabel ? (
               <Badge
                 variant="secondary"
                 className="bg-primary/10 text-primary border-primary/20 px-3 py-1 items-center gap-2"
               >
-                <FileText className="w-4 h-4" />
-                {fileName}
+                {sourceType === "sample" ? (
+                  <Sparkles className="w-4 h-4" />
+                ) : (
+                  <FileText className="w-4 h-4" />
+                )}
+                {sourceLabel}
               </Badge>
             ) : (
               <div className="flex items-center gap-2 text-muted-foreground/60 text-sm font-medium">
@@ -180,7 +192,7 @@ export function TextInput({ onSubmit, isLoading }: TextInputProps) {
             onClick={handleSubmit}
             disabled={isLoading || !text.trim() || isOverLimit}
             size="lg"
-            className="relative h-14 md:col-span-1 font-bold text-lg rounded-2xl shadow-xl shadow-primary/20 bg-primary hover:bg-primary/90 hover:scale-[1.02] active:scale-[0.98] transition-all group overflow-hidden"
+            className="relative h-14 md:col-span-1 font-bold text-lg rounded-2xl shadow-xl shadow-primary/20 bg-primary hover:bg-primary/85 hover:scale-[1.02] active:scale-[0.98] transition-all group overflow-hidden"
           >
             <div className="absolute inset-0 bg-gradient-to-r from-transparent via-white/10 to-transparent -translate-x-full group-hover:translate-x-full transition-transform duration-1000" />
             <Sparkles className="w-5 h-5 mr-3 group-hover:rotate-12 transition-transform" />
@@ -192,7 +204,7 @@ export function TextInput({ onSubmit, isLoading }: TextInputProps) {
             onClick={() => fileInputRef.current?.click()}
             disabled={isLoading}
             size="lg"
-            className="h-14 font-semibold text-base rounded-2xl border-primary/20 bg-primary/5 hover:bg-primary/10 hover:border-primary/40 active:scale-[0.98] shadow-sm transition-all text-primary"
+            className="h-14 font-semibold text-base rounded-2xl border-primary/20 bg-primary/5 hover:bg-primary/10 hover:border-primary/35 active:scale-[0.98] shadow-sm transition-all text-primary"
           >
             <Upload className="w-5 h-5 mr-3" />
             Import PDF
@@ -203,14 +215,15 @@ export function TextInput({ onSubmit, isLoading }: TextInputProps) {
             onClick={() => {
               setText(SAMPLE_TEXT);
               setError("");
-              setFileName("economics_101.pdf");
+              setSourceLabel("Sample text");
+              setSourceType("sample");
             }}
             disabled={isLoading}
             size="lg"
-            className="h-14 font-semibold text-base rounded-2xl hover:bg-primary/10 hover:text-primary active:scale-[0.98] transition-all"
+            className="h-14 font-semibold text-base rounded-2xl hover:bg-primary/10 hover:text-foreground active:scale-[0.98] transition-all"
           >
             <FileText className="w-5 h-5 mr-3" />
-            Load Sample
+            Try Sample
           </Button>
 
           <input
