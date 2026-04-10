@@ -368,6 +368,7 @@ export default function Index() {
           )}
         </AnimatePresence>
       </main>
+      </div>
     </div>
   );
 }
