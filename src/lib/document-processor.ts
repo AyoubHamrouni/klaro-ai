@@ -46,6 +46,15 @@ export interface DocumentExtractionResult {
   source: "file" | "url" | "text";
 }
 
+export interface UrlExtractionResult {
+  text: string;
+  metadata: {
+    title: string;
+    sourceLabel: string;
+    extractedAt: number;
+  };
+}
+
 // ==========================================
 // PDF Processing
 // ==========================================
@@ -227,6 +236,36 @@ export async function validateAndProcessURL(url: string): Promise<string> {
     }
     throw new Error("Invalid URL provided");
   }
+}
+
+export async function extractFromPublicUrl(
+  url: string,
+): Promise<UrlExtractionResult> {
+  const parsedUrl = new URL(url);
+
+  const response = await fetch(`${import.meta.env.VITE_API_URL}/extract-source`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ url: parsedUrl.toString() }),
+  });
+
+  const data = await response.json().catch(() => ({}));
+  if (!response.ok) {
+    throw new Error(data.error || "Unable to extract the shared link.");
+  }
+
+  if (!data?.text || typeof data.text !== "string") {
+    throw new Error("The shared link did not return readable content.");
+  }
+
+  return {
+    text: data.text,
+    metadata: {
+      title: data.metadata?.title || parsedUrl.hostname,
+      sourceLabel: data.metadata?.sourceLabel || parsedUrl.hostname,
+      extractedAt: data.metadata?.extractedAt || Date.now(),
+    },
+  };
 }
 
 function parseGoogleDocLink(url: string): string {

@@ -36,18 +36,15 @@ export default function Index() {
     setPendingPrompt(text);
 
     try {
-      const response = await fetch(
-        `${import.meta.env.VITE_API_URL}/summarize`,
-        {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ text }),
-        },
-      );
+      const response = await fetch(`${import.meta.env.VITE_API_URL}/study-bundle`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ text }),
+      });
 
       if (!response.ok) {
         const errData = await response.json().catch(() => ({}));
-        throw new Error(errData.error || "Summarization failed");
+        throw new Error(errData.error || "Study bundle generation failed");
       }
 
       const result = (await response.json()) as SummaryResult;

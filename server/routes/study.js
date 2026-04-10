@@ -37,6 +37,8 @@ const GEMINI_MODEL = process.env.GEMINI_MODEL || "gemini-1.5-flash";
 const OPENROUTER_MODEL =
   process.env.OPENROUTER_MODEL || "google/gemma-4-26b-a4b-it:free";
 
+const SOURCE_FETCH_TIMEOUT_MS = 12000;
+
 /**
  * Rate limiting: Track last usage of each provider to avoid exhaustion
  * Maps provider names to timestamp of last successful usage
@@ -116,6 +118,218 @@ function isRetryableError(error) {
       message,
     ) || error?.name === "AbortError"
   );
+}
+
+function decodeHtmlEntities(text) {
+  return text
+    .replace(/&nbsp;/gi, " ")
+    .replace(/&amp;/gi, "&")
+    .replace(/&lt;/gi, "<")
+    .replace(/&gt;/gi, ">")
+    .replace(/&quot;/gi, '"')
+    .replace(/&#39;/gi, "'");
+}
+
+function stripHtmlToText(html) {
+  return decodeHtmlEntities(
+    html
+      .replace(/<script[\s\S]*?<\/script>/gi, " ")
+      .replace(/<style[\s\S]*?<\/style>/gi, " ")
+      .replace(/<nav[\s\S]*?<\/nav>/gi, " ")
+      .replace(/<footer[\s\S]*?<\/footer>/gi, " ")
+      .replace(/<header[\s\S]*?<\/header>/gi, " ")
+      .replace(/<[^>]+>/g, " ")
+      .replace(/\s+/g, " ")
+      .trim(),
+  );
+}
+
+function extractHtmlTitle(html) {
+  const match = html.match(/<title[^>]*>([\s\S]*?)<\/title>/i);
+  return match ? decodeHtmlEntities(match[1]).trim() : "";
+}
+
+async function fetchTextResponse(url, options = {}) {
+  const controller = new AbortController();
+  const timeout = setTimeout(() => controller.abort(), SOURCE_FETCH_TIMEOUT_MS);
+
+  try {
+    const response = await fetch(url, {
+      ...options,
+      headers: {
+        "User-Agent": "LuminaOS/1.0 (+study-source-extractor)",
+        Accept: "text/plain,text/html,application/json;q=0.9,*/*;q=0.8",
+        ...(options.headers || {}),
+      },
+      signal: controller.signal,
+    });
+
+    if (!response.ok) {
+      throw new Error(`Unable to fetch source content (${response.status}).`);
+    }
+
+    return response;
+  } finally {
+    clearTimeout(timeout);
+  }
+}
+
+function normalizePublicSourceUrl(input) {
+  const url = new URL(input);
+  const host = url.hostname.toLowerCase();
+
+  if (host.includes("github.com")) {
+    const blobMatch = url.pathname.match(/^\/([^/]+)\/([^/]+)\/blob\/([^/]+)\/(.+)$/);
+    if (blobMatch) {
+      const [, owner, repo, branch, path] = blobMatch;
+      return {
+        kind: "github-raw",
+        url: `https://raw.githubusercontent.com/${owner}/${repo}/${branch}/${path}`,
+        label: `${owner}/${repo}`,
+      };
+    }
+  }
+
+  if (host === "docs.google.com") {
+    const docMatch = url.pathname.match(/\/document\/d\/([A-Za-z0-9-_]+)/);
+    if (docMatch) {
+      return {
+        kind: "google-doc",
+        url: `https://docs.google.com/document/d/${docMatch[1]}/export?format=txt`,
+        label: "Google Doc",
+      };
+    }
+  }
+
+  if (host.endsWith("wikipedia.org")) {
+    const title = url.pathname.split("/wiki/")[1];
+    if (title) {
+      return {
+        kind: "wikipedia",
+        url: `https://${host}/api/rest_v1/page/summary/${title}`,
+        label: "Wikipedia",
+      };
+    }
+  }
+
+  if (host === "arxiv.org") {
+    const absMatch = url.pathname.match(/\/abs\/([^/]+)/);
+    if (absMatch) {
+      return {
+        kind: "arxiv",
+        url: `https://export.arxiv.org/api/query?id_list=${absMatch[1]}`,
+        label: "arXiv",
+      };
+    }
+  }
+
+  if (
+    host.includes("medium.com") ||
+    host === "dev.to" ||
+    host.includes("substack.com") ||
+    host.includes("githubusercontent.com")
+  ) {
+    return {
+      kind: "html",
+      url: input,
+      label: host,
+    };
+  }
+
+  throw new Error(
+    "Unsupported public link. Try a Google Doc, GitHub file, Wikipedia article, arXiv paper, Medium post, or Dev.to article.",
+  );
+}
+
+async function extractSourceFromUrl(input) {
+  const normalized = normalizePublicSourceUrl(input);
+
+  if (normalized.kind === "google-doc" || normalized.kind === "github-raw") {
+    const response = await fetchTextResponse(normalized.url);
+    const text = (await response.text()).trim();
+    if (!text) {
+      throw new Error("The shared link did not return readable text.");
+    }
+    return {
+      sourceLabel: normalized.label,
+      title: normalized.label,
+      text,
+    };
+  }
+
+  if (normalized.kind === "wikipedia") {
+    const response = await fetchTextResponse(normalized.url, {
+      headers: { Accept: "application/json" },
+    });
+    const data = await response.json();
+    const title = data?.title || "Wikipedia Article";
+    const text = [data?.extract, data?.description].filter(Boolean).join("\n\n").trim();
+    if (!text) {
+      throw new Error("The Wikipedia link did not include extractable content.");
+    }
+    return {
+      sourceLabel: "Wikipedia",
+      title,
+      text,
+    };
+  }
+
+  if (normalized.kind === "arxiv") {
+    const response = await fetchTextResponse(normalized.url, {
+      headers: { Accept: "application/atom+xml,text/xml;q=0.9,*/*;q=0.8" },
+    });
+    const xml = await response.text();
+    const title = decodeHtmlEntities(
+      xml.match(/<title>([\s\S]*?)<\/title>/i)?.[1] || "arXiv Paper",
+    )
+      .replace(/^arXiv Query:\s*/i, "")
+      .trim();
+    const summary = decodeHtmlEntities(
+      xml.match(/<summary>([\s\S]*?)<\/summary>/i)?.[1] || "",
+    )
+      .replace(/\s+/g, " ")
+      .trim();
+    const authorMatches = Array.from(xml.matchAll(/<name>([\s\S]*?)<\/name>/gi))
+      .map((match) => decodeHtmlEntities(match[1]).trim())
+      .filter(Boolean)
+      .slice(0, 5);
+    const text = [
+      title,
+      authorMatches.length ? `Authors: ${authorMatches.join(", ")}` : "",
+      summary,
+    ]
+      .filter(Boolean)
+      .join("\n\n")
+      .trim();
+    if (!summary) {
+      throw new Error("The arXiv paper did not return an abstract.");
+    }
+    return {
+      sourceLabel: "arXiv",
+      title,
+      text,
+    };
+  }
+
+  const response = await fetchTextResponse(normalized.url);
+  const html = await response.text();
+  const title = extractHtmlTitle(html) || normalized.label;
+  const articleMatch =
+    html.match(/<article[\s\S]*?<\/article>/i) ||
+    html.match(/<main[\s\S]*?<\/main>/i);
+  const text = stripHtmlToText((articleMatch && articleMatch[0]) || html);
+
+  if (!text || text.length < 120) {
+    throw new Error(
+      "This page could not be cleanly extracted. Try pasting the article text directly for the demo.",
+    );
+  }
+
+  return {
+    sourceLabel: normalized.label,
+    title,
+    text: text.slice(0, 20000),
+  };
 }
 
 function isUnavailableModelError(error) {
@@ -413,8 +627,12 @@ function getMockSummary(text) {
  * @returns {string} Mermaid mindmap syntax
  */
 function getMockMindmap(text) {
-  const topic =
-    text.substring(0, 30).split(" ").slice(0, 2).join(" ") || "Topic";
+  const topic = extractMindmapTopic(text);
+  const branches = extractMindmapBranches(text);
+  if (branches.length > 0) {
+    return stringifyMindmapTree(topic, branches);
+  }
+
   return `mindmap
   root((${topic}))
     Key Concepts
@@ -491,32 +709,137 @@ function extractMindmapTopic(text) {
   );
 }
 
-function buildDeterministicMindmap(summary) {
-  const words = summary
-    .replace(/\n+/g, " ")
-    .split(/\s+/)
-    .filter((word) => word.length > 3)
-    .slice(0, 8);
+function sanitizeMindmapLabel(label, fallback = "Concept") {
+  const cleaned = String(label || "")
+    .replace(/[`*_#>"']/g, " ")
+    .replace(/[()[\]{}:;,.!?/\\|@#$%^&+=~]/g, " ")
+    .replace(/\s+/g, " ")
+    .trim();
 
+  if (!cleaned) return fallback;
+
+  const words = cleaned
+    .split(" ")
+    .filter(Boolean)
+    .slice(0, 5);
+
+  if (words.length === 0) return fallback;
+
+  return words.join(" ");
+}
+
+function toTitleCasePhrase(value) {
+  return sanitizeMindmapLabel(value)
+    .split(" ")
+    .map((word) => word[0].toUpperCase() + word.slice(1).toLowerCase())
+    .join(" ");
+}
+
+function extractCandidatePhrases(sentence) {
+  return sentence
+    .split(/[,;:()\-]/)
+    .map((part) => sanitizeMindmapLabel(part))
+    .filter((part) => {
+      const words = part.split(" ").filter(Boolean);
+      return words.length >= 2 && words.length <= 5;
+    });
+}
+
+function extractMindmapBranches(summary) {
+  const normalized = summary.replace(/\s+/g, " ").trim();
+  if (!normalized) return [];
+
+  const sentences = normalized
+    .split(/(?<=[.!?])\s+/)
+    .map((sentence) => sentence.trim())
+    .filter(Boolean);
+
+  const branchMap = new Map();
+
+  sentences.forEach((sentence, index) => {
+    const phrases = extractCandidatePhrases(sentence);
+    const branchLabel = toTitleCasePhrase(
+      phrases[0] ||
+        sentence
+          .split(" ")
+          .slice(0, 4)
+          .join(" "),
+    );
+
+    if (!branchMap.has(branchLabel)) {
+      branchMap.set(branchLabel, []);
+    }
+
+    const details = branchMap.get(branchLabel);
+    phrases.slice(1, 4).forEach((phrase) => {
+      const detailLabel = toTitleCasePhrase(phrase);
+      if (detailLabel !== branchLabel && !details.includes(detailLabel)) {
+        details.push(detailLabel);
+      }
+    });
+
+    if (details.length === 0) {
+      const fallbackChunks = sentence
+        .split(/,| and | but | because | which /i)
+        .map((part) => sanitizeMindmapLabel(part))
+        .filter(Boolean)
+        .slice(1, 3)
+        .map((part) => toTitleCasePhrase(part));
+      fallbackChunks.forEach((detailLabel) => {
+        if (detailLabel !== branchLabel && !details.includes(detailLabel)) {
+          details.push(detailLabel);
+        }
+      });
+    }
+
+    if (details.length === 0) {
+      details.push(index % 2 === 0 ? "Key Detail" : "Why It Matters");
+    }
+  });
+
+  return Array.from(branchMap.entries())
+    .slice(0, 6)
+    .map(([label, details]) => ({
+      label,
+      children: details.slice(0, 3).map((detail) => ({
+        label: detail,
+        children: [],
+      })),
+    }));
+}
+
+function stringifyMindmapTree(topic, branches) {
+  const lines = [`mindmap`, `  root((` + sanitizeMindmapLabel(topic, "Study Topic") + `))`];
+
+  branches.forEach((branch) => {
+    lines.push(`    ${sanitizeMindmapLabel(branch.label, "Core Concept")}`);
+    branch.children.forEach((child) => {
+      lines.push(`      ${sanitizeMindmapLabel(child.label, "Key Detail")}`);
+    });
+  });
+
+  return lines.join("\n");
+}
+
+function buildDeterministicMindmap(summary) {
   const topic = extractMindmapTopic(summary);
-  const conceptA = words[0] || "Core Idea";
-  const conceptB = words[1] || "Key Detail";
-  const conceptC = words[2] || "Important Fact";
-  const conceptD = words[3] || "Example";
-  const conceptE = words[4] || "Application";
-  const conceptF = words[5] || "Review";
+  const branches = extractMindmapBranches(summary);
+
+  if (branches.length > 0) {
+    return stringifyMindmapTree(topic, branches);
+  }
 
   return `mindmap
   root((${topic}))
-    Core Idea
-      ${conceptA}
-      ${conceptB}
-    Key Details
-      ${conceptC}
-      ${conceptD}
-    Practice
-      ${conceptE}
-      ${conceptF}`;
+    Core Ideas
+      Main Definition
+      Key Detail
+    Supporting Ideas
+      Real Example
+      Why It Matters
+    Study Focus
+      Practice Recall
+      Compare Concepts`;
 }
 
 function normalizeMindmapResponse(value, summary) {
@@ -685,14 +1008,18 @@ router.post("/study-bundle", async (req, res) => {
     };
 
     // 3. Generate Mind Map (Mermaid.js syntax)
-    const mindmapPrompt = `Create a mind map for the following study summary using Mermaid.js mindmap syntax.
+    const mindmapPrompt = `Create a premium study mind map for the following summary using Mermaid.js mindmap syntax.
 Rules:
 - Start with: mindmap
 - Use 2-space indentation for hierarchy
 - Root node should be the main topic (1-3 words) wrapped in (( ))
 - Max 3 levels of depth
-- Each node: 2-5 words MAX, no special characters except spaces
-- 4-8 branches from root
+- Each node: 1-5 words MAX, concrete and content-specific
+- 4-6 branches from root
+- Each branch should cover a different angle of the topic
+- Each branch should have 2-3 detail nodes
+- Prefer concept groupings a student would actually review, not generic labels like Overview, Details, or Summary
+- Capture relationships, mechanisms, categories, causes, effects, examples, or steps when present
 - Return ONLY the raw Mermaid mindmap syntax, NO code fences, NO explanation
 
 Example format:
@@ -776,20 +1103,22 @@ router.post("/mindmap", async (req, res) => {
       return res.json(cached);
     }
 
-    const mindmapPrompt = `Analyze this study material and create a hierarchical mind map showing the main topic, key concepts, and relationships.
+    const mindmapPrompt = `Analyze this study material and create a high-quality study mind map showing the main topic, key concepts, and relationships.
 
 Your task:
 1. Identify the PRIMARY TOPIC (main subject)
-2. Extract 4-6 MAIN CONCEPTS directly from the content
+2. Extract 4-6 DISTINCT MAIN CONCEPTS directly from the content
 3. For each main concept, identify 2-3 SUB-CONCEPTS or DETAILS
 4. Show hierarchy: root → main concepts → details
 
 Rules:
 - Root label: the main subject (2-3 words) wrapped in (( ))
 - Use Mermaid mindmap syntax with 2-space indents
-- Each node: 2-5 words, clear and specific to the content
+- Each node: 1-5 words, clear and specific to the content
 - Max 3 hierarchy levels
 - Focus on ACTUAL content, not generic structure
+- Use branches that feel like a polished study outline, not placeholders
+- Prefer labels covering mechanisms, categories, evidence, process, impact, examples, or strategy when relevant
 - Start with: mindmap
 - Return ONLY raw syntax, NO code fences
 
@@ -828,6 +1157,33 @@ ${summary}`;
   } catch (err) {
     console.error("[Mindmap Error]:", err);
     res.status(500).json({ error: err.message });
+  }
+});
+
+router.post("/extract-source", async (req, res) => {
+  try {
+    const { url } = req.body;
+    if (!url || typeof url !== "string") {
+      return res.status(400).json({ error: "A public URL is required." });
+    }
+
+    const extracted = await extractSourceFromUrl(url);
+    return res.json({
+      text: extracted.text,
+      metadata: {
+        title: extracted.title,
+        sourceLabel: extracted.sourceLabel,
+        extractedAt: Date.now(),
+      },
+    });
+  } catch (error) {
+    console.error("[Extract Source Error]:", error);
+    return res.status(400).json({
+      error:
+        error instanceof Error
+          ? error.message
+          : "Unable to extract content from this link.",
+    });
   }
 });
 

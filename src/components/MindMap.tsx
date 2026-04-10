@@ -1,17 +1,19 @@
-import { useMemo, useState, useRef } from "react";
-import { motion } from "framer-motion";
+import { useMemo, useState } from "react";
+import { motion, AnimatePresence } from "framer-motion";
 import {
+  Download,
   GitBranch,
+  Layers3,
+  RotateCcw,
+  Sparkles,
   ZoomIn,
   ZoomOut,
-  RotateCcw,
-  Download,
-  ChevronDown,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 
 interface MindMapProps {
   mindmapData: string;
+  mode?: "inline" | "expanded";
 }
 
 interface MindmapTreeNode {
@@ -19,8 +21,11 @@ interface MindmapTreeNode {
   children: MindmapTreeNode[];
 }
 
-function countNodes(node: MindmapTreeNode): number {
-  return 1 + node.children.reduce((sum, child) => sum + countNodes(child), 0);
+function cleanMindmapData(data: string) {
+  return data
+    .replace(/```(?:mermaid)?/gi, "")
+    .replace(/```/g, "")
+    .trim();
 }
 
 function parseMindmapTree(data: string): MindmapTreeNode {
@@ -28,27 +33,12 @@ function parseMindmapTree(data: string): MindmapTreeNode {
   const stack: Array<{ depth: number; node: MindmapTreeNode }> = [
     { depth: -1, node: root },
   ];
-
   let rootAssigned = false;
 
-  // Clean and normalize the input data
-  const cleaned = data
-    .replace(/```(?:mermaid)?/gi, "")
-    .replace(/```/g, "")
-    .trim();
-
-  const lines = cleaned
+  const lines = cleanMindmapData(data)
     .split(/\r?\n/)
     .map((line) => line.replace(/\t/g, "  "))
-    .filter((line) => {
-      const trimmed = line.trim();
-      return (
-        trimmed.length > 0 &&
-        trimmed !== "mindmap" &&
-        !trimmed.startsWith("graph") &&
-        !trimmed.startsWith("flowchart")
-      );
-    });
+    .filter((line) => line.trim() && line.trim() !== "mindmap");
 
   for (const line of lines) {
     const depth = Math.max(
@@ -56,17 +46,11 @@ function parseMindmapTree(data: string): MindmapTreeNode {
       Math.floor((line.match(/^ */)?.[0].length ?? 0) / 2),
     );
 
-    // Extract label
-    let label = line
+    const label = line
       .trim()
       .replace(/^root\(\(/i, "")
       .replace(/^\(\(/, "")
       .replace(/\)\)$/, "")
-      .replace(/^[-*]\s*/, "")
-      .trim();
-
-    // Remove markdown formatting
-    label = label
       .replace(/\*\*(.+?)\*\*/g, "$1")
       .replace(/\*(.+?)\*/g, "$1")
       .replace(/`(.+?)`/g, "$1")
@@ -74,18 +58,14 @@ function parseMindmapTree(data: string): MindmapTreeNode {
 
     if (!label) continue;
 
-    // Truncate long labels
-    label = label.slice(0, 100);
-
-    if (depth === 0 && !rootAssigned) {
+    if (depth === 1 && !rootAssigned) {
       root.label = label;
       rootAssigned = true;
       stack.length = 1;
-      stack[0] = { depth: 0, node: root };
+      stack[0] = { depth, node: root };
       continue;
     }
 
-    // Pop stack to correct depth
     while (stack.length > 1 && stack[stack.length - 1].depth >= depth) {
       stack.pop();
     }
@@ -99,256 +79,271 @@ function parseMindmapTree(data: string): MindmapTreeNode {
   return root;
 }
 
-interface NodeComponentProps {
-  node: MindmapTreeNode;
-  depth?: number;
+function countNodes(node: MindmapTreeNode): number {
+  return 1 + node.children.reduce((sum, child) => sum + countNodes(child), 0);
 }
 
-function MindmapNode({ node, depth = 0 }: NodeComponentProps) {
-  const [isExpanded, setIsExpanded] = useState(true);
-
-  const bgByDepth = [
-    "bg-gradient-to-r from-primary/20 to-indigo-500/20 border-primary/40",
-    "bg-gradient-to-r from-indigo-500/15 to-violet-500/15 border-indigo-500/30",
-    "bg-gradient-to-r from-violet-500/10 to-purple-500/10 border-violet-500/25",
-  ];
-
-  const hasChildren = node.children.length > 0;
-
-  return (
-    <div
-      className={
-        depth === 0
-          ? "space-y-5"
-          : "pl-6 border-l-2 border-white/15 space-y-3 py-2"
-      }
-    >
-      {depth === 0 ? (
-        <motion.div
-          initial={{ scale: 0.9, opacity: 0 }}
-          animate={{ scale: 1, opacity: 1 }}
-          className="inline-flex items-center gap-3 rounded-2xl border-2 border-primary/50 bg-gradient-to-r from-primary/15 to-indigo-500/15 px-6 py-3 text-lg font-black text-foreground shadow-lg"
-        >
-          <GitBranch className="w-6 h-6 text-primary flex-shrink-0" />
-          <span className="truncate">{node.label}</span>
-        </motion.div>
-      ) : (
-        <motion.button
-          whileHover={{ scale: 1.03 }}
-          whileTap={{ scale: 0.97 }}
-          onClick={() => setIsExpanded(!isExpanded)}
-          className={`w-full text-left flex items-center gap-3 rounded-xl border px-4 py-3 text-sm font-semibold text-foreground shadow-sm hover:shadow-md transition-all group ${
-            bgByDepth[Math.min(depth - 1, 2)]
-          }`}
-        >
-          {hasChildren ? (
-            <motion.div
-              animate={{ rotate: isExpanded ? 0 : -90 }}
-              transition={{ duration: 0.2 }}
-              className="flex-shrink-0 w-5 h-5 flex items-center justify-center"
-            >
-              <ChevronDown className="w-4 h-4 text-indigo-400 group-hover:text-indigo-300" />
-            </motion.div>
-          ) : (
-            <div className="w-5 h-5 flex items-center justify-center">
-              <span className="w-2 h-2 rounded-full bg-primary/60" />
-            </div>
-          )}
-          <span className="flex-1 truncate">{node.label}</span>
-          {hasChildren && (
-            <span className="text-xs px-2.5 py-0.5 rounded-full bg-white/10 text-muted-foreground font-mono flex-shrink-0">
-              {node.children.length}
-            </span>
-          )}
-        </motion.button>
-      )}
-
-      {hasChildren && isExpanded && (
-        <motion.div
-          initial={{ opacity: 0, height: 0 }}
-          animate={{ opacity: 1, height: "auto" }}
-          exit={{ opacity: 0, height: 0 }}
-          transition={{ duration: 0.2 }}
-          className="space-y-2"
-        >
-          {node.children.map((child, idx) => (
-            <motion.div
-              key={`${depth}-${child.label}-${idx}`}
-              initial={{ opacity: 0, x: -15 }}
-              animate={{ opacity: 1, x: 0 }}
-              transition={{ delay: idx * 0.08 }}
-            >
-              <MindmapNode node={child} depth={depth + 1} />
-            </motion.div>
-          ))}
-        </motion.div>
-      )}
-    </div>
-  );
+function buildOutline(root: MindmapTreeNode) {
+  const lines = [root.label];
+  root.children.forEach((branch) => {
+    lines.push(`- ${branch.label}`);
+    branch.children.forEach((detail) => {
+      lines.push(`  - ${detail.label}`);
+    });
+  });
+  return lines.join("\n");
 }
 
-export function MindMap({ mindmapData }: MindMapProps) {
-  const containerRef = useRef<HTMLDivElement>(null);
+export function MindMap({ mindmapData, mode = "inline" }: MindMapProps) {
+  const tree = useMemo(() => parseMindmapTree(mindmapData), [mindmapData]);
+  const [selectedBranchIndex, setSelectedBranchIndex] = useState(0);
   const [scale, setScale] = useState(1);
+  const isExpanded = mode === "expanded";
 
-  const fallbackTree = useMemo(
-    () => parseMindmapTree(mindmapData),
-    [mindmapData],
-  );
+  const selectedBranch =
+    tree.children[selectedBranchIndex] || tree.children[0] || null;
+  const nodeCount = countNodes(tree);
+  const outline = useMemo(() => buildOutline(tree), [tree]);
 
-  const branchCount = fallbackTree.children.length;
-  const nodeCount = countNodes(fallbackTree);
-  const leadingBranches = fallbackTree.children.slice(0, 4);
-
-  const downloadAsImage = () => {
-    if (!containerRef.current) return;
-
-    const container = containerRef.current.querySelector(".mindmap-content");
-    if (!container) return;
-
-    // Convert to SVG and download
-    const svg = container.innerHTML;
-    const blob = new Blob([svg], { type: "image/svg+xml" });
+  const downloadOutline = () => {
+    const blob = new Blob([outline], { type: "text/plain;charset=utf-8" });
     const url = URL.createObjectURL(blob);
-    const a = document.createElement("a");
-    a.href = url;
-    a.download = "study-buddy-mindmap.svg";
-    a.click();
+    const link = document.createElement("a");
+    link.href = url;
+    link.download = "study-buddy-concept-map.txt";
+    link.click();
     URL.revokeObjectURL(url);
   };
 
   return (
-    <motion.div
-      initial={{ opacity: 0, y: 12 }}
+    <motion.section
+      initial={{ opacity: 0, y: 10 }}
       animate={{ opacity: 1, y: 0 }}
-      className="glass-card rounded-[2.5rem] p-6 border-white/10 shadow-2xl overflow-hidden"
+      className={
+        isExpanded
+          ? "h-full w-full flex flex-col rounded-[1.25rem] border border-white/10 bg-background p-4 md:p-5"
+          : "glass-card rounded-[1.6rem] border-white/10 p-5 shadow-xl"
+      }
     >
-      {/* Header */}
-      <div className="flex items-center justify-between mb-4">
-        <div className="flex items-center gap-3">
-          <div className="p-2 rounded-xl bg-indigo-500/15 border border-indigo-500/20">
-            <GitBranch className="w-5 h-5 text-indigo-400" />
+      <div className="mb-4 flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
+        <div className="flex items-start gap-3">
+          <div className="rounded-[1rem] border border-primary/15 bg-primary/10 p-2.5">
+            <Layers3 className="h-5 w-5 text-primary" />
           </div>
           <div>
-            <h3 className="font-black text-lg tracking-tight">Mind Map</h3>
-            <p className="text-xs text-muted-foreground font-medium">
-              Interactive concept hierarchy for your study material
+            <h3 className="text-xl font-black tracking-tight">Concept Map</h3>
+            <p className="text-sm text-muted-foreground">
+              Follow one branch at a time to keep the structure easy to scan.
             </p>
           </div>
         </div>
 
-        {/* Controls */}
-        <div className="flex items-center gap-2">
+        <div className="flex items-center gap-2 self-start md:self-auto">
           <Button
             variant="ghost"
             size="icon"
-            className="rounded-xl w-8 h-8"
-            onClick={() => setScale((s) => Math.max(0.4, s - 0.15))}
+            className="h-8 w-8 rounded-full"
+            onClick={() => setScale((value) => Math.max(0.9, value - 0.05))}
             title="Zoom out"
           >
-            <ZoomOut className="w-4 h-4" />
+            <ZoomOut className="h-4 w-4" />
           </Button>
-          <span className="text-xs font-bold tabular-nums w-10 text-center text-muted-foreground">
+          <span className="w-10 text-center text-xs font-bold text-muted-foreground">
             {Math.round(scale * 100)}%
           </span>
           <Button
             variant="ghost"
             size="icon"
-            className="rounded-xl w-8 h-8"
-            onClick={() => setScale((s) => Math.min(2.5, s + 0.15))}
+            className="h-8 w-8 rounded-full"
+            onClick={() => setScale((value) => Math.min(1.15, value + 0.05))}
             title="Zoom in"
           >
-            <ZoomIn className="w-4 h-4" />
+            <ZoomIn className="h-4 w-4" />
           </Button>
           <Button
             variant="ghost"
             size="icon"
-            className="rounded-xl w-8 h-8"
-            onClick={() => setScale(1)}
-            title="Reset zoom"
+            className="h-8 w-8 rounded-full"
+            onClick={() => {
+              setSelectedBranchIndex(0);
+              setScale(1);
+            }}
+            title="Reset"
           >
-            <RotateCcw className="w-4 h-4" />
+            <RotateCcw className="h-4 w-4" />
           </Button>
           <Button
             variant="ghost"
             size="icon"
-            className="rounded-xl w-8 h-8 text-indigo-400 hover:bg-indigo-500/10"
-            onClick={downloadAsImage}
-            title="Download as image"
+            className="h-8 w-8 rounded-full"
+            onClick={downloadOutline}
+            title="Download outline"
           >
-            <Download className="w-4 h-4" />
+            <Download className="h-4 w-4" />
           </Button>
         </div>
       </div>
 
-      {/* Stats Grid */}
-      <div className="grid grid-cols-2 md:grid-cols-4 gap-3 mb-4">
-        <div className="rounded-2xl border border-white/10 bg-white/5 px-4 py-3">
-          <p className="text-[10px] font-black uppercase tracking-[0.2em] text-muted-foreground">
-            Root Topic
-          </p>
-          <p className="font-black text-sm mt-1 truncate">
-            {fallbackTree.label}
-          </p>
-        </div>
-        <div className="rounded-2xl border border-white/10 bg-white/5 px-4 py-3">
-          <p className="text-[10px] font-black uppercase tracking-[0.2em] text-muted-foreground">
-            Main Branches
-          </p>
-          <p className="font-black text-sm mt-1">{branchCount}</p>
-        </div>
-        <div className="rounded-2xl border border-white/10 bg-white/5 px-4 py-3">
-          <p className="text-[10px] font-black uppercase tracking-[0.2em] text-muted-foreground">
-            Total Nodes
-          </p>
-          <p className="font-black text-sm mt-1">{nodeCount}</p>
-        </div>
-        <div className="rounded-2xl border border-white/10 bg-white/5 px-4 py-3">
-          <p className="text-[10px] font-black uppercase tracking-[0.2em] text-muted-foreground">
-            Best For
-          </p>
-          <p className="font-black text-sm mt-1">Overview</p>
-        </div>
+      <div className="mb-4 grid grid-cols-2 gap-2 md:grid-cols-4">
+        <StatCard label="Central topic" value={tree.label} />
+        <StatCard label="Main branches" value={String(tree.children.length)} />
+        <StatCard
+          label="Detail nodes"
+          value={String(Math.max(nodeCount - tree.children.length - 1, 0))}
+        />
+        <StatCard
+          label="Active focus"
+          value={selectedBranch?.label || "Overview"}
+        />
       </div>
 
-      {/* Key Branches Preview */}
-      {leadingBranches.length > 0 && (
-        <div className="flex flex-wrap gap-2 mb-4">
-          {leadingBranches.map((branch) => (
-            <span
-              key={branch.label}
-              className="rounded-full border border-primary/15 bg-primary/10 px-3 py-1 text-xs font-bold text-foreground"
-            >
-              {branch.label}
-            </span>
-          ))}
+      <div className="rounded-[1.4rem] border border-border/80 bg-gradient-to-br from-slate-50 to-white p-4 dark:from-slate-950 dark:to-slate-900 flex-1 flex flex-col overflow-hidden">
+        <div className="mb-4 flex items-center gap-2 text-xs font-medium text-muted-foreground">
+          <Sparkles className="h-4 w-4 text-accent" />
+          Select a branch to narrow the map. The central idea stays pinned so
+          orientation is never lost.
         </div>
-      )}
 
-      {/* Mind Map Container */}
-      <div
-        ref={containerRef}
-        className="relative min-h-[400px] md:min-h-[500px] flex items-center justify-center bg-indigo-950/20 rounded-2xl border border-indigo-500/10 overflow-auto p-6"
-      >
-        <div className="w-full max-w-full">
-          <div className="text-center text-muted-foreground p-2 mb-6">
-            <p className="text-xs opacity-60 font-medium">
-              💡 Click nodes to expand/collapse • Explore the hierarchy
-            </p>
-          </div>
-
+        <div className="flex-1 overflow-auto">
           <div
-            className="mindmap-content w-full"
+            className={`grid gap-3 md:gap-4 w-full auto-rows-max px-1 ${
+              isExpanded
+                ? "grid-cols-1 md:grid-cols-2 2xl:grid-cols-3"
+                : "grid-cols-1 md:grid-cols-2"
+            }`}
             style={{
               transform: `scale(${scale})`,
-              transformOrigin: "center top",
-              transition: "transform 0.2s ease-out",
+              transformOrigin: "top left",
             }}
           >
-            <MindmapNode node={fallbackTree} depth={0} />
+            <section className="rounded-[1.35rem] border border-primary/15 bg-primary/10 p-4">
+              <p className="text-[10px] font-black uppercase tracking-[0.18em] text-primary/80">
+                Central concept
+              </p>
+              <h4 className="mt-3 text-2xl font-black tracking-tight leading-tight">
+                {tree.label}
+              </h4>
+              <p className="mt-3 text-sm leading-relaxed text-muted-foreground">
+                This is the anchor for the whole topic. Start here, then move
+                right into one branch.
+              </p>
+            </section>
+
+            <section className="rounded-[1.35rem] border border-border/80 bg-background/70 p-4">
+              <p className="text-[10px] font-black uppercase tracking-[0.18em] text-muted-foreground">
+                Main branches
+              </p>
+              <div className="mt-3 grid gap-2">
+                {tree.children.map((branch, index) => {
+                  const active = index === selectedBranchIndex;
+                  return (
+                    <button
+                      key={branch.label}
+                      type="button"
+                      onClick={() => setSelectedBranchIndex(index)}
+                      onKeyDown={(event) => {
+                        if (event.key === "ArrowDown") {
+                          event.preventDefault();
+                          setSelectedBranchIndex((value) =>
+                            Math.min(value + 1, tree.children.length - 1),
+                          );
+                        }
+                        if (event.key === "ArrowUp") {
+                          event.preventDefault();
+                          setSelectedBranchIndex((value) =>
+                            Math.max(value - 1, 0),
+                          );
+                        }
+                      }}
+                      className={`rounded-[1rem] border px-4 py-3 text-left transition-all focus:outline-none focus:ring-2 focus:ring-ring ${
+                        active
+                          ? "border-primary/25 bg-primary text-primary-foreground shadow-md"
+                          : "border-border/80 bg-background hover:bg-secondary"
+                      }`}
+                    >
+                      <div className="flex items-start justify-between gap-3">
+                        <div>
+                          <p className="text-sm font-black leading-snug">
+                            {branch.label}
+                          </p>
+                          <p
+                            className={`mt-1 text-xs ${active ? "text-primary-foreground/85" : "text-muted-foreground"}`}
+                          >
+                            {branch.children.length} supporting details
+                          </p>
+                        </div>
+                        <GitBranch
+                          className={`h-4 w-4 ${active ? "text-primary-foreground" : "text-accent"}`}
+                        />
+                      </div>
+                    </button>
+                  );
+                })}
+              </div>
+            </section>
+
+            <section className="rounded-[1.35rem] border border-border/80 bg-background/70 p-4">
+              <p className="text-[10px] font-black uppercase tracking-[0.18em] text-muted-foreground">
+                Focused details
+              </p>
+              <AnimatePresence mode="wait">
+                <motion.div
+                  key={selectedBranch?.label || "empty"}
+                  initial={{ opacity: 0, y: 8 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  exit={{ opacity: 0, y: -8 }}
+                  transition={{ duration: 0.18 }}
+                  className="mt-3 space-y-3"
+                >
+                  {selectedBranch ? (
+                    <>
+                      <div className="rounded-[1rem] border border-accent/20 bg-accent/10 px-4 py-3">
+                        <p className="text-[10px] font-black uppercase tracking-[0.18em] text-accent">
+                          Active branch
+                        </p>
+                        <p className="mt-2 text-lg font-black leading-tight">
+                          {selectedBranch.label}
+                        </p>
+                      </div>
+                      {selectedBranch.children.length > 0 ? (
+                        selectedBranch.children.map((detail) => (
+                          <div
+                            key={detail.label}
+                            className="rounded-[1rem] border border-border/80 bg-secondary/40 px-4 py-3"
+                          >
+                            <p className="text-sm font-semibold leading-relaxed">
+                              {detail.label}
+                            </p>
+                          </div>
+                        ))
+                      ) : (
+                        <div className="rounded-[1rem] border border-border/80 bg-secondary/40 px-4 py-3 text-sm text-muted-foreground">
+                          This branch does not have extra detail nodes yet.
+                        </div>
+                      )}
+                    </>
+                  ) : (
+                    <div className="rounded-[1rem] border border-border/80 bg-secondary/40 px-4 py-3 text-sm text-muted-foreground">
+                      No branch is available yet.
+                    </div>
+                  )}
+                </motion.div>
+              </AnimatePresence>
+            </section>
           </div>
         </div>
       </div>
-    </motion.div>
+    </motion.section>
+  );
+}
+
+function StatCard({ label, value }: { label: string; value: string }) {
+  return (
+    <div className="rounded-[1rem] border border-white/10 bg-white/60 px-4 py-3 dark:bg-white/5">
+      <p className="text-[10px] font-black uppercase tracking-[0.18em] text-muted-foreground">
+        {label}
+      </p>
+      <p className="mt-2 text-sm font-black leading-snug">{value}</p>
+    </div>
   );
 }

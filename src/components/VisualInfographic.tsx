@@ -1,65 +1,74 @@
 import { motion } from "framer-motion";
-import type { ReactNode } from "react";
+import { useMemo, useState } from "react";
 import {
-  Sparkles,
-  TrendingUp,
+  ArrowRight,
   BookOpen,
-  Hash,
-  Zap,
-  Layers,
+  Brain,
+  CheckCircle2,
+  Download,
   Lightbulb,
+  RotateCcw,
+  Timer,
+  ZoomIn,
+  ZoomOut,
 } from "lucide-react";
+import { Button } from "@/components/ui/button";
 
 interface VisualInfographicProps {
   summary: string;
   originalWordCount: number;
   keyTerms: Array<{ term: string; definition: string }>;
   difficultyLevel: string;
-}
-
-function difficultyToScore(level: string): number {
-  const l = level.toLowerCase();
-  if (l.includes("beginner") || l.includes("easy")) return 25;
-  if (l.includes("intermediate") || l.includes("moderate")) return 55;
-  if (l.includes("advanced") || l.includes("hard")) return 80;
-  if (l.includes("expert")) return 95;
-  return 50;
-}
-
-function getDifficultyColor(level: string): string {
-  const score = difficultyToScore(level);
-  if (score < 30) return "text-emerald-400";
-  if (score < 65) return "text-amber-400";
-  return "text-rose-400";
+  mode?: "inline" | "expanded";
 }
 
 function clamp(value: number, min: number, max: number) {
   return Math.max(min, Math.min(max, value));
 }
 
-function extractMainTopics(
-  summary: string,
+function getSentences(summary: string) {
+  return summary
+    .replace(/\s+/g, " ")
+    .split(/(?<=[.!?])\s+/)
+    .map((sentence) => sentence.trim())
+    .filter(Boolean)
+    .slice(0, 6);
+}
+
+function buildStudyPath(sentences: string[]) {
+  return [
+    sentences[0] || "Read the main claim first.",
+    sentences[1] || "Sort the core concepts into groups.",
+    sentences[2] || "Check the examples and supporting details.",
+  ].map((text, index) => ({
+    label: `Step ${index + 1}`,
+    text: text.replace(/[.!?]+$/, ""),
+  }));
+}
+
+function difficultyTone(level: string) {
+  const value = level.toLowerCase();
+  if (value.includes("beginner") || value.includes("easy"))
+    return "Foundational";
+  if (value.includes("advanced") || value.includes("expert")) return "Dense";
+  return "Moderate";
+}
+
+function getConceptGroups(
   keyTerms: Array<{ term: string; definition: string }>,
-): string[] {
-  const sentences = summary.split(/[.!?]+/).filter((s) => s.trim().length > 0);
-  const topics: string[] = [];
+) {
+  const groups = [];
 
-  // Get first 3 key terms as primary topics
-  keyTerms.slice(0, 3).forEach((kt) => {
-    topics.push(kt.term);
-  });
-
-  // Add concepts from first few sentences
-  if (sentences.length > 0) {
-    const firstSentence = sentences[0].trim();
-    const words = firstSentence.split(/\s+/);
-    if (words.length > 0) {
-      const topic = words.slice(0, Math.min(3, words.length)).join(" ");
-      if (!topics.includes(topic)) topics.push(topic);
-    }
+  for (let index = 0; index < keyTerms.length; index += 2) {
+    const chunk = keyTerms.slice(index, index + 2);
+    if (!chunk.length) continue;
+    groups.push({
+      title: chunk.map((item) => item.term).join(" + "),
+      terms: chunk,
+    });
   }
 
-  return topics.slice(0, 5);
+  return groups.slice(0, 3);
 }
 
 export function VisualInfographic({
@@ -67,279 +76,364 @@ export function VisualInfographic({
   originalWordCount,
   keyTerms,
   difficultyLevel,
+  mode = "inline",
 }: VisualInfographicProps) {
-  const summaryWordCount = summary.trim().split(/\s+/).length;
-  const compressionRatio = clamp(
-    Math.round((1 - summaryWordCount / Math.max(1, originalWordCount)) * 100),
+  const isExpanded = mode === "expanded";
+  const tree = useMemo(() => {
+    const extractedSentences = getSentences(summary);
+    return {
+      overview: extractedSentences[0] || summary,
+      sentences: extractedSentences,
+      path: buildStudyPath(extractedSentences),
+      groups: getConceptGroups(keyTerms),
+    };
+  }, [summary, keyTerms]);
+
+  const sentences = tree.sentences;
+  const summaryWords = summary.trim().split(/\s+/).filter(Boolean).length;
+  const reviewTime = Math.max(1, Math.ceil(summaryWords / 180));
+  const compression = clamp(
+    Math.round((1 - summaryWords / Math.max(1, originalWordCount)) * 100),
     0,
     100,
   );
-  const readingTimeMin = Math.max(1, Math.ceil(summaryWordCount / 200));
-  const diffScore = difficultyToScore(difficultyLevel);
-  const mainTopics = extractMainTopics(summary, keyTerms);
-  const topTerms = keyTerms.slice(0, 6);
-  const studySequence = [
-    "Read through once for context.",
-    "Highlight key terms you'll study.",
-    "Use flashcards to anchor knowledge.",
-    "Test yourself with the built-in quiz.",
-  ];
+  const [activeView, setActiveView] = useState<
+    "overview" | "clusters" | "path"
+  >("overview");
+  const [selectedTerm, setSelectedTerm] = useState(keyTerms[0]?.term || "");
+  const [scale, setScale] = useState(1);
 
-  return (
-    <motion.div
-      initial={{ opacity: 0, y: 12 }}
-      animate={{ opacity: 1, y: 0 }}
-      transition={{ delay: 0.05 }}
-      className="space-y-5"
-    >
-      <div className="glass-card rounded-[2.5rem] p-6 border-white/10 shadow-2xl">
-        <div className="flex items-center gap-3 mb-5">
-          <div className="p-2 rounded-xl bg-violet-500/15 border border-violet-500/20">
-            <Sparkles className="w-5 h-5 text-violet-400" />
-          </div>
-          <div>
-            <h3 className="font-black text-lg tracking-tight">
-              Learning Overview
-            </h3>
-            <p className="text-xs text-muted-foreground font-medium">
-              Content structure and study metrics
-            </p>
-          </div>
-        </div>
+  const focusedTerm =
+    keyTerms.find((term) => term.term === selectedTerm) || keyTerms[0];
 
-        <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
-          <StatCard
-            icon={<Hash className="w-4 h-4" />}
-            label="Key Concepts"
-            value={String(keyTerms.length)}
-            color="violet"
-          />
-          <StatCard
-            icon={<TrendingUp className="w-4 h-4" />}
-            label="Compression"
-            value={`${compressionRatio}%`}
-            color="indigo"
-          />
-          <StatCard
-            icon={<BookOpen className="w-4 h-4" />}
-            label="Read Time"
-            value={`${readingTimeMin}m`}
-            color="cyan"
-          />
-          <StatCard
-            icon={<Zap className="w-4 h-4" />}
-            label="Difficulty"
-            value={difficultyLevel}
-            color="amber"
-            textSmall
-          />
-        </div>
-      </div>
+  const downloadDigest = () => {
+    const content = `
+VISUAL STUDY DIGEST
+==================
 
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
-        <div className="glass-card rounded-[2.5rem] p-6 border-white/10 shadow-2xl">
-          <p className="text-xs font-black uppercase tracking-[0.15em] text-muted-foreground mb-4">
-            Content Learning Flow
-          </p>
-          <div className="space-y-4">
-            {mainTopics.length > 0 ? (
-              mainTopics.map((topic, index) => (
-                <motion.div
-                  key={topic}
-                  initial={{ opacity: 0, x: -10 }}
-                  animate={{ opacity: 1, x: 0 }}
-                  transition={{ delay: 0.1 + index * 0.05 }}
-                  className="flex items-center gap-3 p-3 rounded-xl border border-white/10 bg-white/5"
-                >
-                  <div className="w-8 h-8 rounded-full bg-gradient-to-br from-indigo-400 to-violet-500 flex items-center justify-center flex-shrink-0">
-                    <span className="text-xs font-black text-white">
-                      {index + 1}
-                    </span>
-                  </div>
-                  <span className="font-bold text-sm">{topic}</span>
-                </motion.div>
-              ))
-            ) : (
-              <p className="text-xs text-muted-foreground text-center py-6">
-                Topics will appear here
-              </p>
-            )}
-          </div>
-        </div>
+MAIN IDEA:
+${tree.overview}
 
-        <div className="glass-card rounded-[2.5rem] p-6 border-white/10 shadow-2xl">
-          <p className="text-xs font-black uppercase tracking-[0.15em] text-muted-foreground mb-4">
-            Difficulty & Scope
-          </p>
-          <div className="space-y-5">
-            <div>
-              <div className="flex items-center justify-between mb-2">
-                <span className="text-xs font-bold">Content Complexity</span>
-                <span
-                  className={`text-xs font-black ${getDifficultyColor(difficultyLevel)}`}
-                >
-                  {difficultyLevel}
-                </span>
-              </div>
-              <div className="h-3 bg-white/5 rounded-full overflow-hidden">
-                <motion.div
-                  initial={{ width: 0 }}
-                  animate={{ width: `${diffScore}%` }}
-                  transition={{ duration: 0.8, ease: "easeOut" }}
-                  className="h-full rounded-full"
-                  style={{
-                    background:
-                      diffScore < 35
-                        ? "linear-gradient(90deg, #34d399, #059669)"
-                        : diffScore < 65
-                          ? "linear-gradient(90deg, #fbbf24, #d97706)"
-                          : "linear-gradient(90deg, #f87171, #dc2626)",
-                  }}
-                />
-              </div>
-            </div>
-            <div>
-              <div className="flex items-center justify-between mb-2">
-                <span className="text-xs font-bold">Content Reduction</span>
-                <span className="text-xs font-bold text-primary">
-                  {compressionRatio}%
-                </span>
-              </div>
-              <div className="h-3 bg-white/5 rounded-full overflow-hidden">
-                <motion.div
-                  initial={{ width: 0 }}
-                  animate={{ width: `${compressionRatio}%` }}
-                  transition={{ duration: 0.8, ease: "easeOut" }}
-                  className="h-full rounded-full bg-gradient-to-r from-primary to-accent"
-                />
-              </div>
-            </div>
-          </div>
-        </div>
-      </div>
+KEY METRICS:
+- Core Terms: ${keyTerms.length}
+- Review Time: ${reviewTime} minutes
+- Difficulty: ${difficultyTone(difficultyLevel)}
+- Compression: ${compression}%
 
-      <div className="glass-card rounded-[2.5rem] p-6 border-white/10 shadow-2xl">
-        <p className="text-xs font-black uppercase tracking-[0.15em] text-muted-foreground mb-4">
-          Top Terms to Master
-        </p>
-        <div className="space-y-3">
-          {topTerms.map((t, i) => {
-            const barW = Math.max(20, 100 - i * 12);
-            return (
-              <div key={t.term}>
-                <div className="flex items-center justify-between mb-1">
-                  <span className="text-[11px] font-bold truncate max-w-[70%]">
-                    {t.term}
-                  </span>
-                  <span className="text-[10px] text-muted-foreground">
-                    #{i + 1}
-                  </span>
-                </div>
-                <div className="h-2 bg-white/5 rounded-full overflow-hidden">
-                  <motion.div
-                    initial={{ width: 0 }}
-                    animate={{ width: `${barW}%` }}
-                    transition={{
-                      delay: 0.1 + i * 0.05,
-                      duration: 0.5,
-                      ease: "easeOut",
-                    }}
-                    className="h-full rounded-full"
-                    style={{
-                      background: `hsl(${250 - i * 15}, 70%, ${55 + i * 3}%)`,
-                    }}
-                  />
-                </div>
-              </div>
-            );
-          })}
-          {keyTerms.length === 0 && (
-            <p className="text-xs text-muted-foreground text-center py-8">
-              No key terms extracted yet.
-            </p>
-          )}
-        </div>
-      </div>
+KEY TERMS:
+${keyTerms.map((t) => `- ${t.term}: ${t.definition}`).join("\n")}
 
-      <div className="glass-card rounded-[2.5rem] p-6 border-white/10 shadow-2xl">
-        <p className="text-xs font-black uppercase tracking-[0.15em] text-muted-foreground mb-4">
-          Recommended Study Path
-        </p>
-        <div className="grid grid-cols-1 md:grid-cols-4 gap-3">
-          {studySequence.map((step, index) => (
-            <motion.div
-              key={step}
-              initial={{ opacity: 0, y: 10 }}
-              animate={{ opacity: 1, y: 0 }}
-              transition={{ delay: 0.1 + index * 0.05 }}
-              className="rounded-2xl border border-white/10 bg-white/5 p-4"
-            >
-              <p className="text-[10px] font-black uppercase tracking-[0.2em] text-muted-foreground mb-2">
-                Step {index + 1}
-              </p>
-              <p className="text-sm font-bold leading-relaxed">{step}</p>
-            </motion.div>
-          ))}
-        </div>
-      </div>
+STUDY PATH:
+${tree.path.map((s) => `${s.label}: ${s.text}`).join("\n")}
 
-      <div className="glass-card rounded-[2.5rem] p-6 border-white/10 shadow-2xl">
-        <div className="flex items-start gap-3 mb-4">
-          <div className="p-2 rounded-xl bg-emerald-500/15 border border-emerald-500/20 flex-shrink-0">
-            <Lightbulb className="w-5 h-5 text-emerald-400" />
-          </div>
-          <div>
-            <p className="text-xs font-black uppercase tracking-[0.15em] text-muted-foreground">
-              Learning Tip
-            </p>
-            <p className="text-sm text-muted-foreground leading-relaxed mt-2">
-              This material has <strong>{keyTerms.length} key concepts</strong>{" "}
-              to master. Focus on understanding these before diving into
-              details. The mind map on the left shows how these concepts
-              connect.
-            </p>
-          </div>
-        </div>
-      </div>
-    </motion.div>
-  );
-}
+SUPPORTING IDEAS:
+${sentences
+  .slice(1, 4)
+  .map((s, i) => `${i + 1}. ${s}`)
+  .join("\n")}
+    `.trim();
 
-function StatCard({
-  icon,
-  label,
-  value,
-  color,
-  textSmall = false,
-}: {
-  icon: ReactNode;
-  label: string;
-  value: string;
-  color: string;
-  textSmall?: boolean;
-}) {
-  const bg: Record<string, string> = {
-    violet: "bg-violet-500/10 border-violet-500/20 text-violet-400",
-    indigo: "bg-indigo-500/10 border-indigo-500/20 text-indigo-400",
-    cyan: "bg-cyan-500/10 border-cyan-500/20 text-cyan-400",
-    amber: "bg-amber-500/10 border-amber-500/20 text-amber-400",
+    const blob = new Blob([content], { type: "text/plain;charset=utf-8" });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement("a");
+    link.href = url;
+    link.download = "study-buddy-visual-digest.txt";
+    link.click();
+    URL.revokeObjectURL(url);
   };
 
   return (
-    <div
-      className={`rounded-2xl border p-3 flex gap-3 items-start ${bg[color]}`}
+    <motion.section
+      initial={{ opacity: 0, y: 10 }}
+      animate={{ opacity: 1, y: 0 }}
+      className={
+        isExpanded
+          ? "h-full w-full flex flex-col rounded-[1.25rem] border border-white/10 bg-background p-4 md:p-5"
+          : "glass-card rounded-[1.6rem] border-white/10 p-5 shadow-xl"
+      }
     >
-      <div className="mt-0.5">{icon}</div>
-      <div className="min-w-0">
-        <p
-          className={`font-black leading-tight ${textSmall ? "text-xs" : "text-sm"}`}
-        >
-          {value}
-        </p>
-        <p className="text-[10px] uppercase tracking-widest opacity-70">
-          {label}
-        </p>
+      <div className="mb-4 flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
+        <div className="flex items-start gap-3">
+          <div className="rounded-[1rem] border border-accent/15 bg-accent/10 p-2.5">
+            <BookOpen className="h-5 w-5 text-accent" />
+          </div>
+          <div>
+            <h3 className="text-xl font-black tracking-tight">Visual Digest</h3>
+            <p className="text-sm text-muted-foreground">
+              Focus on one view at a time to absorb the concepts clearly.
+            </p>
+          </div>
+        </div>
+
+        {isExpanded && (
+          <div className="flex items-center gap-2 self-start md:self-auto">
+            <Button
+              variant="ghost"
+              size="icon"
+              className="h-8 w-8 rounded-full"
+              onClick={() => setScale((value) => Math.max(0.9, value - 0.05))}
+              title="Zoom out"
+            >
+              <ZoomOut className="h-4 w-4" />
+            </Button>
+            <span className="w-10 text-center text-xs font-bold text-muted-foreground">
+              {Math.round(scale * 100)}%
+            </span>
+            <Button
+              variant="ghost"
+              size="icon"
+              className="h-8 w-8 rounded-full"
+              onClick={() => setScale((value) => Math.min(1.15, value + 0.05))}
+              title="Zoom in"
+            >
+              <ZoomIn className="h-4 w-4" />
+            </Button>
+            <Button
+              variant="ghost"
+              size="icon"
+              className="h-8 w-8 rounded-full"
+              onClick={() => {
+                setActiveView("overview");
+                setSelectedTerm(keyTerms[0]?.term || "");
+                setScale(1);
+              }}
+              title="Reset"
+            >
+              <RotateCcw className="h-4 w-4" />
+            </Button>
+            <Button
+              variant="ghost"
+              size="icon"
+              className="h-8 w-8 rounded-full"
+              onClick={downloadDigest}
+              title="Download digest"
+            >
+              <Download className="h-4 w-4" />
+            </Button>
+          </div>
+        )}
       </div>
+
+      {isExpanded && (
+        <div className="mb-4 grid grid-cols-2 gap-2 md:grid-cols-4">
+          <StatCard label="Core terms" value={String(keyTerms.length)} />
+          <StatCard label="Review time" value={`${reviewTime} min`} />
+          <StatCard
+            label="Difficulty"
+            value={difficultyTone(difficultyLevel)}
+          />
+          <StatCard label="Compression" value={`${compression}%`} />
+        </div>
+      )}
+
+      <div className="flex flex-wrap gap-2 mb-4">
+        {[
+          { id: "overview", label: "Overview" },
+          { id: "clusters", label: "Concept Clusters" },
+          { id: "path", label: "Study Path" },
+        ].map((item) => (
+          <button
+            key={item.id}
+            type="button"
+            onClick={() =>
+              setActiveView(item.id as "overview" | "clusters" | "path")
+            }
+            className={`rounded-full border px-3 py-1.5 text-xs font-bold transition-all ${
+              activeView === item.id
+                ? "border-primary/20 bg-primary text-primary-foreground"
+                : "border-border/80 bg-white/60 text-muted-foreground hover:bg-secondary dark:bg-white/5"
+            }`}
+          >
+            {item.label}
+          </button>
+        ))}
+      </div>
+
+      <div className="rounded-[1.4rem] border border-border/80 bg-gradient-to-br from-slate-50 to-white p-4 dark:from-slate-950 dark:to-slate-900 flex-1 flex flex-col overflow-hidden">
+        <div className="flex-1 overflow-auto">
+          <div
+            className={`grid gap-3 md:gap-4 w-full auto-rows-max px-1 ${
+              isExpanded
+                ? "grid-cols-1 lg:grid-cols-[1fr_300px]"
+                : "grid-cols-1 lg:grid-cols-[1fr_280px]"
+            }`}
+            style={{
+              transform: `scale(${scale})`,
+              transformOrigin: "top left",
+            }}
+          >
+            <section className="rounded-[1.35rem] border border-border/80 bg-background/70 p-4">
+              {activeView === "overview" && (
+                <div className="space-y-5">
+                  <div>
+                    <p className="text-[10px] font-black uppercase tracking-[0.18em] text-muted-foreground">
+                      Main idea
+                    </p>
+                    <h4 className="mt-2 text-2xl font-black tracking-tight leading-tight">
+                      {tree.overview.split(/[\n.]/)[0] || "Overview"}
+                    </h4>
+                    <p className="mt-3 text-sm leading-relaxed text-muted-foreground">
+                      {tree.overview}
+                    </p>
+                  </div>
+
+                  <div className="grid gap-3 sm:grid-cols-2">
+                    {keyTerms.slice(0, 6).map((term) => (
+                      <button
+                        key={term.term}
+                        type="button"
+                        onClick={() => setSelectedTerm(term.term)}
+                        className={`rounded-[1rem] border p-3 text-left transition-all ${
+                          selectedTerm === term.term
+                            ? "border-primary/20 bg-primary/10"
+                            : "border-border/80 bg-white/60 hover:bg-secondary dark:bg-white/5"
+                        }`}
+                      >
+                        <p className="text-sm font-black">{term.term}</p>
+                        <p className="mt-1 text-xs leading-relaxed text-muted-foreground">
+                          {term.definition}
+                        </p>
+                      </button>
+                    ))}
+                  </div>
+                </div>
+              )}
+
+              {activeView === "clusters" && (
+                <div className="space-y-4">
+                  <div>
+                    <p className="text-[10px] font-black uppercase tracking-[0.18em] text-muted-foreground">
+                      Concept clusters
+                    </p>
+                    <h4 className="mt-2 text-lg font-black">
+                      Group related ideas together
+                    </h4>
+                  </div>
+
+                  <div className="grid gap-3">
+                    {tree.groups.map((group) => (
+                      <div
+                        key={group.title}
+                        className="rounded-[1rem] border border-border/80 bg-white/60 p-3 dark:bg-white/5"
+                      >
+                        <p className="text-sm font-black">{group.title}</p>
+                        <div className="mt-2 grid gap-2 sm:grid-cols-2">
+                          {group.terms.map((term) => (
+                            <button
+                              key={term.term}
+                              type="button"
+                              onClick={() => setSelectedTerm(term.term)}
+                              className={`rounded-[0.75rem] border p-2 text-left text-xs transition-all ${
+                                selectedTerm === term.term
+                                  ? "border-primary/20 bg-primary/10"
+                                  : "border-border/80 bg-background/70 hover:bg-secondary"
+                              }`}
+                            >
+                              <p className="font-black">{term.term}</p>
+                              <p className="mt-0.5 text-muted-foreground line-clamp-2">
+                                {term.definition}
+                              </p>
+                            </button>
+                          ))}
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
+
+              {activeView === "path" && (
+                <div className="space-y-4">
+                  <div>
+                    <p className="text-[10px] font-black uppercase tracking-[0.18em] text-muted-foreground">
+                      Study path
+                    </p>
+                    <h4 className="mt-2 text-lg font-black">
+                      Follow this sequence to learn efficiently
+                    </h4>
+                  </div>
+
+                  <div className="grid gap-3">
+                    {tree.path.map((step) => (
+                      <div
+                        key={step.label}
+                        className="rounded-[1rem] border border-border/80 bg-white/60 p-3 dark:bg-white/5"
+                      >
+                        <div className="flex items-start gap-2">
+                          <div className="rounded-full bg-primary/10 p-1.5 flex-shrink-0 mt-0.5">
+                            <ArrowRight className="h-3 w-3 text-primary" />
+                          </div>
+                          <div className="min-w-0">
+                            <p className="text-[9px] font-black uppercase tracking-[0.1em] text-muted-foreground">
+                              {step.label}
+                            </p>
+                            <p className="mt-1 text-sm font-semibold leading-snug">
+                              {step.text}
+                            </p>
+                          </div>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
+            </section>
+
+            <aside className="rounded-[1.35rem] border border-border/80 bg-background/70 p-4">
+              <p className="text-[10px] font-black uppercase tracking-[0.18em] text-muted-foreground">
+                Active term
+              </p>
+              {focusedTerm && (
+                <div className="mt-3">
+                  <h4 className="mt-2 text-lg font-black leading-tight">
+                    {focusedTerm.term}
+                  </h4>
+                  <p className="mt-2 text-sm leading-relaxed text-muted-foreground">
+                    {focusedTerm.definition}
+                  </p>
+                </div>
+              )}
+
+              <div className="mt-4 border-t border-border/70 pt-4">
+                <p className="text-[10px] font-black uppercase tracking-[0.18em] text-muted-foreground">
+                  Key metrics
+                </p>
+                <div className="mt-3 space-y-2">
+                  <div className="flex items-center justify-between text-sm">
+                    <span className="text-muted-foreground">Terms</span>
+                    <span className="font-black">{keyTerms.length}</span>
+                  </div>
+                  <div className="flex items-center justify-between text-sm">
+                    <span className="text-muted-foreground">Time</span>
+                    <span className="font-black">{reviewTime} min</span>
+                  </div>
+                  <div className="flex items-center justify-between text-sm">
+                    <span className="text-muted-foreground">Difficulty</span>
+                    <span className="font-black">
+                      {difficultyTone(difficultyLevel)}
+                    </span>
+                  </div>
+                  <div className="flex items-center justify-between text-sm">
+                    <span className="text-muted-foreground">Compression</span>
+                    <span className="font-black">{compression}%</span>
+                  </div>
+                </div>
+              </div>
+            </aside>
+          </div>
+        </div>
+      </div>
+    </motion.section>
+  );
+}
+
+function StatCard({ label, value }: { label: string; value: string }) {
+  return (
+    <div className="rounded-[1rem] border border-white/10 bg-white/60 px-4 py-3 dark:bg-white/5">
+      <p className="text-[10px] font-black uppercase tracking-[0.18em] text-muted-foreground">
+        {label}
+      </p>
+      <p className="mt-2 text-sm font-black leading-snug">{value}</p>
     </div>
   );
 }

@@ -16,6 +16,7 @@ import {
   processDocument,
   countWords,
   SUPPORTED_EXTENSIONS,
+  extractFromPublicUrl,
 } from "@/lib/document-processor";
 import { motion, AnimatePresence } from "framer-motion";
 
@@ -78,12 +79,10 @@ export function TextInput({ onSubmit, isLoading }: TextInputProps) {
     setIsProcessing(true);
     try {
       setError("");
-      // For now, show a message that URL processing is done server-side
-      setSourceLabel(new URL(url).hostname);
+      const result = await extractFromPublicUrl(url);
+      setSourceLabel(result.metadata.title || result.metadata.sourceLabel);
       setSourceType("url");
-      setText(
-        `[Shared Link: ${url}]\n\nNote: The full content will be available once processed by our server. Supported: Google Drive, Wikipedia, Medium, arXiv, GitHub, Dev.to`,
-      );
+      setText(result.text);
       setShowUrlInput(false);
       if (urlInputRef.current) {
         urlInputRef.current.value = "";
@@ -214,7 +213,7 @@ export function TextInput({ onSubmit, isLoading }: TextInputProps) {
               <input
                 ref={urlInputRef}
                 type="url"
-                placeholder="Paste a link (Google Drive, Wikipedia, Medium, etc.)"
+                placeholder="Paste a public link to a Google Doc, GitHub file, Wikipedia page, arXiv paper, Medium, or Dev.to post"
                 className="flex-1 bg-transparent text-sm font-medium outline-none placeholder:text-muted-foreground/50"
                 onKeyPress={(e) => {
                   if (e.key === "Enter") handleUrlInput();

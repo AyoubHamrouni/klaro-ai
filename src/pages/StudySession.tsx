@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { useTheme } from "next-themes";
 import { motion } from "framer-motion";
@@ -50,6 +50,25 @@ interface StoredSession {
 
 type DashboardView = "study" | "practice" | "visuals" | "focus";
 type VisualInspector = "mindmap" | "infographic" | null;
+type VisualSurface = "mindmap" | "infographic";
+
+function getMindmapPreviewBranches(mindmapData?: string) {
+  if (!mindmapData) return [];
+
+  return mindmapData
+    .split(/\r?\n/)
+    .map((line) => ({ raw: line, trimmed: line.trim() }))
+    .filter((line) => line.trimmed && line.trimmed !== "mindmap")
+    .filter((line) => (line.raw.match(/^ */)?.[0].length ?? 0) === 4)
+    .map((line) =>
+      line.trimmed
+        .replace(/^root\(\(/i, "")
+        .replace(/^\(\(/, "")
+        .replace(/\)\)$/, "")
+        .trim(),
+    )
+    .slice(0, 4);
+}
 
 export default function StudySession() {
   const navigate = useNavigate();
@@ -85,6 +104,7 @@ export default function StudySession() {
   );
   const [visualInspector, setVisualInspector] =
     useState<VisualInspector>(null);
+  const [visualSurface, setVisualSurface] = useState<VisualSurface>("mindmap");
 
   const darkMode = (resolvedTheme ?? theme) === "dark";
   const fontScaleClass = {
@@ -193,6 +213,12 @@ export default function StudySession() {
     void fetchMindmap();
   }, [isMindmapLoading, mindmapRequestedFor, session]);
 
+  const previewBranches = useMemo(
+    () => getMindmapPreviewBranches(session?.result.mindmapData),
+    [session?.result.mindmapData],
+  );
+  const spotlightTerms = session?.result.keyTerms.slice(0, 4) ?? [];
+
   if (!isSessionResolved || !session) {
     return (
       <div className="min-h-[100dvh] bg-background pt-16 md:pt-20">
@@ -273,24 +299,23 @@ export default function StudySession() {
           animate={{ opacity: 1, scale: 1 }}
           className="px-4 md:px-6 py-6 md:py-8"
         >
-          <div className="max-w-6xl mx-auto space-y-6">
-            <section className="glass-card rounded-[2rem] p-5 md:p-6 border-white/10 shadow-2xl">
-              <div className="flex flex-col gap-5 xl:flex-row xl:items-center xl:justify-between">
-                <div className="space-y-2 max-w-2xl">
+          <div className="max-w-6xl mx-auto space-y-5">
+            <section className="glass-card rounded-[1.75rem] p-4 md:p-5 border-white/10 shadow-xl">
+              <div className="flex flex-col gap-4 xl:flex-row xl:items-center xl:justify-between">
+                <div className="space-y-1.5 max-w-2xl">
                   <p className="text-[10px] font-black uppercase tracking-[0.2em] text-muted-foreground">
                     Active study workspace
                   </p>
-                  <h2 className="text-2xl md:text-3xl font-black tracking-tight">
+                  <h2 className="text-xl md:text-2xl font-black tracking-tight">
                     One task at a time, one tab at a time.
                   </h2>
                   <p className="text-sm text-muted-foreground leading-relaxed">
-                    The workspace is now segmented for dyslexia and ADHD use:
-                    summary first, practice on demand, visuals in an inspectable
-                    surface, and focus tools in their own lane.
+                    A calmer study flow for neurodivergent learners: summary,
+                    practice, visuals, and focus tools each get their own lane.
                   </p>
                 </div>
 
-                <div className="grid grid-cols-2 md:grid-cols-4 gap-3 xl:min-w-[420px]">
+                <div className="grid grid-cols-2 md:grid-cols-4 gap-2 xl:min-w-[420px]">
                   <MetricTile
                     icon={<ChartColumn className="w-4 h-4" />}
                     label="Compression"
@@ -318,33 +343,33 @@ export default function StudySession() {
             <Tabs
               value={dashboardView}
               onValueChange={(value) => setDashboardView(value as DashboardView)}
-              className="space-y-6"
+              className="space-y-5"
             >
-              <TabsList className="h-auto w-full grid grid-cols-2 md:grid-cols-4 gap-2 rounded-[1.75rem] border border-white/10 bg-white/5 p-2">
+              <TabsList className="h-auto w-full grid grid-cols-2 md:grid-cols-4 gap-2 rounded-[1.35rem] border border-white/10 bg-white/5 p-1.5">
                 <TabsTrigger
                   value="study"
-                  className="rounded-[1.15rem] px-4 py-3 font-bold data-[state=active]:bg-primary data-[state=active]:text-primary-foreground"
+                  className="rounded-[1rem] px-4 py-2.5 font-bold data-[state=active]:bg-primary data-[state=active]:text-primary-foreground"
                 >
                   <BookOpen className="w-4 h-4 mr-2" />
                   Summary
                 </TabsTrigger>
                 <TabsTrigger
                   value="practice"
-                  className="rounded-[1.15rem] px-4 py-3 font-bold data-[state=active]:bg-primary data-[state=active]:text-primary-foreground"
+                  className="rounded-[1rem] px-4 py-2.5 font-bold data-[state=active]:bg-primary data-[state=active]:text-primary-foreground"
                 >
                   <Brain className="w-4 h-4 mr-2" />
                   Practice
                 </TabsTrigger>
                 <TabsTrigger
                   value="visuals"
-                  className="rounded-[1.15rem] px-4 py-3 font-bold data-[state=active]:bg-primary data-[state=active]:text-primary-foreground"
+                  className="rounded-[1rem] px-4 py-2.5 font-bold data-[state=active]:bg-primary data-[state=active]:text-primary-foreground"
                 >
                   <Map className="w-4 h-4 mr-2" />
                   Visuals
                 </TabsTrigger>
                 <TabsTrigger
                   value="focus"
-                  className="rounded-[1.15rem] px-4 py-3 font-bold data-[state=active]:bg-primary data-[state=active]:text-primary-foreground"
+                  className="rounded-[1rem] px-4 py-2.5 font-bold data-[state=active]:bg-primary data-[state=active]:text-primary-foreground"
                 >
                   <Target className="w-4 h-4 mr-2" />
                   Focus
@@ -474,107 +499,133 @@ export default function StudySession() {
               </TabsContent>
 
               <TabsContent value="visuals" className="mt-0">
-                <div className="grid grid-cols-1 xl:grid-cols-[minmax(0,1fr)_320px] gap-6 items-start">
-                  <div className="space-y-6">
-                    <section className="glass-card rounded-[2rem] p-6 border-white/10 shadow-2xl">
-                      <div className="flex flex-col gap-4 md:flex-row md:items-start md:justify-between mb-6">
+                <div className="grid grid-cols-1 xl:grid-cols-[minmax(0,1fr)_280px] gap-5 items-start">
+                  <div className="space-y-5">
+                    <section className="glass-card rounded-[1.75rem] p-5 border-white/10 shadow-xl">
+                      <div className="mb-4 flex flex-col gap-3 md:flex-row md:items-end md:justify-between">
                         <div>
                           <p className="text-[10px] font-black uppercase tracking-[0.2em] text-muted-foreground mb-1">
                             Visual learning
                           </p>
                           <h3 className="font-black text-xl tracking-tight">
-                            Inspect the concept map or the study infographic.
+                            Study the concept map or visual digest in place.
                           </h3>
                           <p className="text-sm text-muted-foreground mt-2 max-w-2xl leading-relaxed">
-                            Visuals are now split into dedicated inspectable
-                            surfaces instead of being buried in the main scroll.
+                            The active visual stays on the page so learners can
+                            inspect it without losing context.
                           </p>
+                        </div>
+                        <Button
+                          onClick={() => setVisualInspector(visualSurface)}
+                          className="h-11 rounded-[1rem] px-5 font-bold"
+                          disabled={
+                            visualSurface === "mindmap" &&
+                            !session.result.mindmapData
+                          }
+                        >
+                          <Eye className="mr-2 h-4 w-4" />
+                          Expand {visualSurface === "mindmap" ? "Concept Map" : "Visual Digest"}
+                        </Button>
+                      </div>
+
+                      <div className="rounded-[1.25rem] border border-white/10 bg-slate-100/70 p-1.5 dark:bg-white/5">
+                        <div className="grid grid-cols-2 gap-2">
+                          <Button
+                            variant={visualSurface === "mindmap" ? "default" : "ghost"}
+                            onClick={() => setVisualSurface("mindmap")}
+                            className="h-10 rounded-[0.9rem] font-bold"
+                          >
+                            <Map className="mr-2 h-4 w-4" />
+                            Concept Map
+                          </Button>
+                          <Button
+                            variant={visualSurface === "infographic" ? "default" : "ghost"}
+                            onClick={() => setVisualSurface("infographic")}
+                            className="h-10 rounded-[0.9rem] font-bold"
+                          >
+                            <ChartColumn className="mr-2 h-4 w-4" />
+                            Visual Digest
+                          </Button>
                         </div>
                       </div>
 
-                      <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
-                        <VisualPreviewCard
-                          title="Mind map"
-                          description={
-                            session.result.mindmapData
-                              ? "Explore the concept branches, zoom in, and inspect relationships."
-                              : "The mind map is being prepared in the background."
-                          }
-                          status={
-                            session.result.mindmapData
-                              ? "Ready to inspect"
-                              : isMindmapLoading
-                                ? "Generating"
-                                : "Waiting"
-                          }
-                          icon={<Map className="w-5 h-5 text-indigo-400" />}
-                          onInspect={() => setVisualInspector("mindmap")}
-                          disabled={!session.result.mindmapData}
-                        >
-                          <div className="rounded-[1.5rem] border border-white/10 bg-indigo-950/20 p-5 min-h-[220px] flex items-center justify-center text-center">
-                            {session.result.mindmapData ? (
-                              <div className="space-y-2">
-                                <p className="text-lg font-black">Concept map ready</p>
-                                <p className="text-sm text-muted-foreground">
-                                  Open the inspect view for full zoom and navigation.
+                      <div className="mt-4 space-y-4">
+                        {visualSurface === "mindmap" ? (
+                          session.result.mindmapData ? (
+                            <MindMap mindmapData={session.result.mindmapData} />
+                          ) : (
+                            <div className="glass-card rounded-[1.5rem] border border-white/10 p-6 shadow-lg">
+                              <div className="rounded-[1.25rem] border border-white/10 bg-white/5 p-6 text-center">
+                                <p className="text-lg font-black">Concept map loading</p>
+                                <p className="mt-2 text-sm text-muted-foreground">
+                                  The summary is ready. The concept surface is still being prepared.
                                 </p>
                               </div>
-                            ) : (
-                              <div className="space-y-2">
-                                <p className="text-lg font-black">Mind map loading</p>
-                                <p className="text-sm text-muted-foreground">
-                                  The summary is ready. The visual graph is still building.
-                                </p>
-                              </div>
-                            )}
-                          </div>
-                        </VisualPreviewCard>
-
-                        <VisualPreviewCard
-                          title="Infographic"
-                          description="Turn the summary into a cleaner visual digest with study metrics and concept emphasis."
-                          status="Ready to inspect"
-                          icon={<ChartColumn className="w-5 h-5 text-cyan-400" />}
-                          onInspect={() => setVisualInspector("infographic")}
-                        >
-                          <div className="rounded-[1.5rem] border border-white/10 bg-cyan-950/20 p-5 min-h-[220px]">
-                            <div className="grid grid-cols-2 gap-3">
-                              <MetricTile
-                                icon={<Brain className="w-4 h-4" />}
-                                label="Concepts"
-                                value={String(session.result.keyTerms.length)}
-                              />
-                              <MetricTile
-                                icon={<BookOpen className="w-4 h-4" />}
-                                label="Read Time"
-                                value={`${readingTimeMin}m`}
-                              />
-                              <MetricTile
-                                icon={<ChartColumn className="w-4 h-4" />}
-                                label="Compression"
-                                value={`${reductionPercent}%`}
-                              />
-                              <MetricTile
-                                icon={<Lightbulb className="w-4 h-4" />}
-                                label="Difficulty"
-                                value={session.result.difficulty_level}
-                              />
                             </div>
-                          </div>
-                        </VisualPreviewCard>
+                          )
+                        ) : (
+                          <VisualInfographic
+                            summary={session.result.summary}
+                            originalWordCount={session.originalWordCount}
+                            keyTerms={session.result.keyTerms}
+                            difficultyLevel={session.result.difficulty_level}
+                          />
+                        )}
                       </div>
                     </section>
                   </div>
 
-                  <div className="space-y-6 xl:sticky xl:top-24">
+                  <div className="space-y-4 xl:sticky xl:top-24">
                     <SidebarCard
-                      icon={<Eye className="w-5 h-5 text-primary" />}
-                      title="Inspect mode"
-                      label="Visual behavior"
+                      icon={
+                        visualSurface === "mindmap" ? (
+                          <Map className="w-5 h-5 text-primary" />
+                        ) : (
+                          <ChartColumn className="w-5 h-5 text-accent" />
+                        )
+                      }
+                      title={visualSurface === "mindmap" ? "Active surface" : "Digest guide"}
+                      label="Context"
+                    >
+                      {visualSurface === "mindmap" ? (
+                        <div className="space-y-3">
+                          <p className="text-sm text-muted-foreground leading-relaxed">
+                            Start with the central topic, select one branch, then scan only its details.
+                          </p>
+                          <div className="flex flex-wrap gap-2">
+                            {previewBranches.slice(0, 4).map((branch) => (
+                              <span
+                                key={branch}
+                                className="rounded-full border border-primary/15 bg-primary/10 px-3 py-1 text-xs font-bold"
+                              >
+                                {branch}
+                              </span>
+                            ))}
+                          </div>
+                        </div>
+                      ) : (
+                        <div className="space-y-2">
+                          {spotlightTerms.slice(0, 3).map((term) => (
+                            <div
+                              key={term.term}
+                              className="rounded-[1rem] border border-white/10 bg-white/5 px-3 py-2"
+                            >
+                              <p className="text-sm font-black">{term.term}</p>
+                            </div>
+                          ))}
+                          <p className="text-sm text-muted-foreground leading-relaxed">
+                            Use the digest tabs to switch between the main idea, concept groups, and study sequence.
+                          </p>
+                        </div>
+                      )}
+                    </SidebarCard>
+                    <SidebarCard
+                      icon={<Lightbulb className="w-5 h-5 text-warm" />}
+                      title="Study tip"
+                      label="Focus"
                     >
                       <p className="text-sm text-muted-foreground leading-relaxed">
-                        Use inspect to isolate the visual, remove surrounding
-                        clutter, zoom in, and study it as its own artifact.
+                        Keep one branch or one concept cluster active at a time. The interface should narrow attention, not widen it.
                       </p>
                     </SidebarCard>
                     <SidebarCard
@@ -688,23 +739,26 @@ export default function StudySession() {
           if (!open) setVisualInspector(null);
         }}
       >
-        <DialogContent className="max-w-[min(1200px,95vw)] h-[88vh] rounded-[2rem] border-white/10 bg-background/95 p-0 overflow-hidden">
+        <DialogContent className="max-w-[98vw] h-[96vh] rounded-[1.1rem] border-white/10 bg-background/98 p-0 overflow-hidden">
           <div className="flex h-full flex-col">
-            <DialogHeader className="border-b border-white/10 px-6 py-5">
-              <DialogTitle className="font-black tracking-tight">
+            <DialogHeader className="sticky top-0 z-10 border-b border-white/10 bg-background/90 px-5 py-4 backdrop-blur-md">
+              <DialogTitle className="font-black tracking-tight text-xl">
                 {visualInspector === "mindmap"
-                  ? "Mind map inspect mode"
-                  : "Infographic inspect mode"}
+                  ? "Concept map"
+                  : "Visual digest"}
               </DialogTitle>
               <DialogDescription>
                 {visualInspector === "mindmap"
-                  ? "Zoom, scan, and inspect the concept structure without the rest of the workspace in view."
-                  : "Study the infographic as a dedicated visual artifact instead of an inline card."}
+                  ? "Select one branch at a time and inspect its details without the rest of the workspace in the way."
+                  : "Switch between the main idea, concept clusters, and study path in a dedicated study surface."}
               </DialogDescription>
             </DialogHeader>
-            <div className="flex-1 overflow-auto p-6">
+            <div className="flex-1 overflow-auto p-3 md:p-4">
               {visualInspector === "mindmap" && session.result.mindmapData && (
-                <MindMap mindmapData={session.result.mindmapData} />
+                <MindMap
+                  mindmapData={session.result.mindmapData}
+                  mode="expanded"
+                />
               )}
               {visualInspector === "infographic" && (
                 <VisualInfographic
@@ -712,6 +766,7 @@ export default function StudySession() {
                   originalWordCount={session.originalWordCount}
                   keyTerms={session.result.keyTerms}
                   difficultyLevel={session.result.difficulty_level}
+                  mode="expanded"
                 />
               )}
             </div>
@@ -740,16 +795,16 @@ function SidebarCard({
   children: React.ReactNode;
 }) {
   return (
-    <section className="glass-card rounded-[2rem] p-6 border-white/10 shadow-2xl">
+    <section className="glass-card rounded-[1.5rem] p-5 border-white/10 shadow-lg">
       <div className="flex items-center gap-3 mb-4">
-        <div className="p-2 rounded-xl bg-white/5 border border-white/10">
+        <div className="p-2 rounded-[0.9rem] bg-white/50 border border-white/10 dark:bg-white/5">
           {icon}
         </div>
         <div>
-          <p className="text-[10px] font-black uppercase tracking-[0.2em] text-muted-foreground">
+          <p className="text-[10px] font-black uppercase tracking-[0.18em] text-muted-foreground">
             {label}
           </p>
-          <h3 className="font-black text-lg tracking-tight">{title}</h3>
+          <h3 className="font-black text-base tracking-tight">{title}</h3>
         </div>
       </div>
       {children}
@@ -767,62 +822,14 @@ function MetricTile({
   value: string;
 }) {
   return (
-    <div className="rounded-[1.35rem] border border-white/10 bg-white/5 p-3">
+    <div className="rounded-[1rem] border border-white/10 bg-white/55 p-3 dark:bg-white/5">
       <div className="flex items-center gap-2 text-muted-foreground mb-2">
         {icon}
-        <span className="text-[10px] font-black uppercase tracking-[0.2em]">
+        <span className="text-[10px] font-black uppercase tracking-[0.16em]">
           {label}
         </span>
       </div>
       <p className="font-black text-base leading-tight">{value}</p>
-    </div>
-  );
-}
-
-function VisualPreviewCard({
-  title,
-  description,
-  status,
-  icon,
-  children,
-  onInspect,
-  disabled = false,
-}: {
-  title: string;
-  description: string;
-  status: string;
-  icon: React.ReactNode;
-  children: React.ReactNode;
-  onInspect: () => void;
-  disabled?: boolean;
-}) {
-  return (
-    <div className="rounded-[1.75rem] border border-white/10 bg-white/5 p-4 space-y-4">
-      <div className="flex items-start justify-between gap-4">
-        <div className="flex items-start gap-3">
-          <div className="p-2 rounded-xl bg-white/5 border border-white/10">
-            {icon}
-          </div>
-          <div>
-            <h4 className="font-black text-lg tracking-tight">{title}</h4>
-            <p className="text-sm text-muted-foreground leading-relaxed">
-              {description}
-            </p>
-          </div>
-        </div>
-        <span className="text-[10px] font-black uppercase tracking-[0.2em] text-muted-foreground">
-          {status}
-        </span>
-      </div>
-      {children}
-      <Button
-        onClick={onInspect}
-        disabled={disabled}
-        className="w-full rounded-2xl h-11 font-bold"
-      >
-        <Eye className="w-4 h-4 mr-2" />
-        Inspect
-      </Button>
     </div>
   );
 }
