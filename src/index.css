@@ -158,3 +158,7 @@
   border-radius: 2px;
   animation: confetti-fall 2s ease-out forwards;
 }
+
+#root {
+  width: 100%;
+}
