@@ -6,7 +6,7 @@ FROM node:20-alpine AS frontend-builder
 WORKDIR /app
 # Copy root package.json for frontend
 COPY package*.json ./
-RUN npm ci
+RUN npm install
 # Copy frontend source code
 COPY index.html vite.config.ts tailwind.config.ts postcss.config.js components.json tsconfig*.json ./
 COPY src/ ./src/
@@ -20,7 +20,7 @@ FROM node:20-alpine AS backend-builder
 WORKDIR /app
 # Copy server package files
 COPY server/package*.json ./
-RUN npm ci
+RUN npm install
 # Copy backend source code
 COPY server/ .
 
@@ -38,7 +38,7 @@ WORKDIR /app
 
 # Install production deps only for backend
 COPY server/package*.json ./
-RUN npm ci --omit=dev && npm cache clean --force
+RUN npm install --omit=dev && npm cache clean --force
 
 # Copy backend application source
 COPY --from=backend-builder /app/index.js ./

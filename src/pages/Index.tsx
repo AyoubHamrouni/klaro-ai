@@ -1,6 +1,6 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
-import { motion, AnimatePresence } from "framer-motion";
+import { motion, AnimatePresence, useScroll, useTransform } from "framer-motion";
 import { useTheme } from "next-themes";
 import { Sparkles, FileText, Link2, BookOpen, Brain, Zap } from "lucide-react";
 import { Header } from "../components/Header";
@@ -23,6 +23,21 @@ export default function Index() {
   const [fontSize, setFontSize] = useState<"normal" | "large" | "xlarge">(
     "normal",
   );
+  
+  // Dynamic Global Mouse Tracking
+  const [mousePos, setMousePos] = useState({ x: 0, y: 0 });
+  useEffect(() => {
+    const handleMouseMove = (e: MouseEvent) => {
+      setMousePos({ x: e.clientX, y: e.clientY });
+    };
+    window.addEventListener("mousemove", handleMouseMove);
+    return () => window.removeEventListener("mousemove", handleMouseMove);
+  }, []);
+
+  // Parallax Scroll Physics
+  const { scrollY } = useScroll();
+  const backgroundY = useTransform(scrollY, [0, 1000], ["0%", "20%"]);
+  const backgroundScale = useTransform(scrollY, [0, 1000], [1, 1.1]);
 
   const darkMode = (resolvedTheme ?? theme) === "dark";
   const fontScaleClass = {
@@ -90,17 +105,32 @@ export default function Index() {
     <div
       className={`min-h-[100dvh] relative overflow-x-hidden transition-colors duration-700 ${dyslexicFont ? "font-dyslexic" : ""} ${fontScaleClass} bg-background`}
     >
-      <div className="fixed inset-0 pointer-events-none z-0 transition-opacity duration-1000">
-        <div className="absolute inset-0 opacity-20 filter contrast-125 brightness-75">
+      {/* Dynamic Interactive Background */}
+      <div className="fixed inset-0 pointer-events-none z-0 overflow-hidden">
+        <motion.div 
+          style={{ y: backgroundY, scale: backgroundScale }}
+          className="absolute inset-0 opacity-40 filter contrast-125 brightness-[0.85] mix-blend-screen"
+        >
           <img
             src="/branding/hero-bg.png"
             alt=""
             className="w-full h-full object-cover"
           />
-        </div>
-        <div className="absolute top-[-10%] left-[-10%] w-[50%] h-[50%] bg-primary/10 rounded-full blur-[120px] animate-pulse" />
+        </motion.div>
+        
+        {/* Mouse Tracking Aura */}
+        <motion.div
+           animate={{
+             x: mousePos.x - 300,
+             y: mousePos.y - 300,
+           }}
+           transition={{ type: "spring", damping: 40, stiffness: 100, mass: 0.5 }}
+           className="absolute w-[600px] h-[600px] bg-primary/10 rounded-full blur-[150px] mix-blend-screen"
+        />
+
+        <div className="absolute top-[-10%] left-[-10%] w-[50%] h-[50%] bg-primary/10 rounded-full blur-[120px] animate-pulse mix-blend-screen" />
         <div
-          className="absolute bottom-[-10%] right-[-10%] w-[50%] h-[50%] bg-accent/10 rounded-full blur-[120px] animate-pulse"
+          className="absolute bottom-[-10%] right-[-10%] w-[50%] h-[50%] bg-accent/10 rounded-full blur-[120px] animate-pulse mix-blend-screen"
           style={{ animationDelay: "1s" }}
         />
       </div>
@@ -204,8 +234,8 @@ export default function Index() {
                 </p>
               </div>
 
-              <div className="relative group max-w-2xl mx-auto">
-                <div className="absolute -inset-1 bg-gradient-to-r from-primary/50 to-accent/50 rounded-[2.5rem] blur-xl opacity-20 group-hover:opacity-40 transition duration-1000" />
+              <div className="relative group max-w-2xl mx-auto z-10 hover:z-50 transition-all duration-500">
+                <div className="absolute -inset-1 bg-gradient-to-r from-primary/60 to-accent/60 rounded-[2.5rem] blur-xl opacity-30 group-hover:opacity-70 group-hover:-inset-2 transition-all duration-1000" />
                 <TextInput onSubmit={handleSummarize} isLoading={isLoading} />
               </div>
 
@@ -365,13 +395,25 @@ function FeatureCard({
 
   return (
     <motion.div
-      whileHover={{ scale: 1.05 }}
-      whileTap={{ scale: 0.98 }}
-      className={`glass-card rounded-[1.75rem] p-5 border transition-all duration-300 cursor-pointer ${
+      whileHover={{ 
+        scale: 1.05, 
+        y: -5,
+        boxShadow: "0 25px 50px -12px rgba(0,0,0,0.5)",
+      }}
+      whileTap={{ scale: 0.95 }}
+      className={`glass-card rounded-[1.75rem] p-6 border transition-colors duration-300 cursor-pointer relative overflow-hidden group ${
         colorClasses[color as keyof typeof colorClasses]
       }`}
     >
-      <div className="mb-3">{icon}</div>
+      <div className="absolute inset-0 bg-gradient-to-br from-white/10 to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-500 pointer-events-none" />
+      <motion.div 
+        initial={{ rotate: 0 }}
+        whileHover={{ rotate: [0, -10, 10, 0], scale: 1.1 }}
+        transition={{ duration: 0.5 }}
+        className="mb-4 inline-block drop-shadow-2xl"
+      >
+        {icon}
+      </motion.div>
       <h4 className="font-black text-sm mb-1">{title}</h4>
       <p className="text-xs text-muted-foreground">{description}</p>
     </motion.div>
