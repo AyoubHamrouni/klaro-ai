@@ -69,7 +69,8 @@
 
   html {
     scroll-behavior: smooth;
-    overflow-y: auto !important;
+    overflow-y: auto;
+    height: 100%;
   }
 
   body {
@@ -79,9 +80,13 @@
       radial-gradient(at 0% 0%, hsla(194, 62%, 53%, 0.06) 0px, transparent 42%),
       radial-gradient(at 100% 100%, hsla(228, 52%, 54%, 0.07) 0px, transparent 45%);
     background-attachment: fixed;
-    min-height: 100vh;
+    min-height: 100%;
     overflow-x: hidden;
-    overflow-y: auto !important;
+  }
+
+  #root {
+    height: 100%;
+    width: 100%;
   }
 
   .glass-card {
