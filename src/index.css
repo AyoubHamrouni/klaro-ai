@@ -69,7 +69,9 @@
 
   html {
     scroll-behavior: smooth;
-    overflow-y: auto;
+    overflow-x: hidden;
+    height: auto;
+    min-height: 100%;
   }
 
   body {
@@ -80,12 +82,17 @@
       radial-gradient(at 100% 100%, hsla(228, 52%, 54%, 0.07) 0px, transparent 45%);
     background-attachment: fixed;
     min-height: 100vh;
+    height: auto;
     overflow-x: hidden;
-    overflow-y: auto;
+    overflow-y: visible;
+    position: relative;
   }
 
   #root {
     width: 100%;
+    height: auto;
+    min-height: 100%;
+    display: block;
   }
 
   .glass-card {
@@ -112,17 +119,9 @@
 
 /* Animations */
 @keyframes float {
-  0% {
-    transform: translateY(0px);
-  }
-
-  50% {
-    transform: translateY(-10px);
-  }
-
-  100% {
-    transform: translateY(0px);
-  }
+  0% { transform: translateY(0px); }
+  50% { transform: translateY(-10px); }
+  100% { transform: translateY(0px); }
 }
 
 .float-animation {
@@ -130,33 +129,18 @@
 }
 
 @keyframes pulse-glow {
-
-  0%,
-  100% {
-    box-shadow: 0 0 0 0 rgba(147, 51, 234, 0);
-  }
-
-  50% {
-    box-shadow: 0 0 20px 2px rgba(147, 51, 234, 0.2);
-  }
+  0%, 100% { box-shadow: 0 0 0 0 rgba(147, 51, 234, 0); }
+  50% { box-shadow: 0 0 20px 2px rgba(147, 51, 234, 0.2); }
 }
 
 .pulse-glow {
   animation: pulse-glow 3s infinite;
 }
 
-
 /* Confetti animation */
 @keyframes confetti-fall {
-  0% {
-    transform: translateY(-10px) rotate(0deg);
-    opacity: 1;
-  }
-
-  100% {
-    transform: translateY(400px) rotate(720deg);
-    opacity: 0;
-  }
+  0% { transform: translateY(-10px) rotate(0deg); opacity: 1; }
+  100% { transform: translateY(400px) rotate(720deg); opacity: 0; }
 }
 
 .confetti-container .confetti-piece {
@@ -166,8 +150,4 @@
   top: 0;
   border-radius: 2px;
   animation: confetti-fall 2s ease-out forwards;
-}
-
-#root {
-  width: 100%;
 }

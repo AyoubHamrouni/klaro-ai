@@ -104,9 +104,9 @@ export default function Index() {
 
   return (
     <div
-      className={`relative w-full transition-colors duration-700 ${dyslexicFont ? "font-dyslexic" : ""} ${fontScaleClass} bg-background`}
+      className={`relative w-full min-h-screen transition-colors duration-700 ${dyslexicFont ? "font-dyslexic" : ""} ${fontScaleClass} bg-background`}
     >
-      {/* Background Elements - Fixed layer for stability */}
+      {/* Background layer - Fixed and non-interactive */}
       <div className="fixed inset-0 pointer-events-none z-0 overflow-hidden">
         <motion.div 
           style={{ y: backgroundY, scale: backgroundScale }}
@@ -136,7 +136,8 @@ export default function Index() {
         />
       </div>
 
-      <div className="relative z-10 flex flex-col">
+      {/* Content layer - Relative and above background */}
+      <div className="relative z-10">
         <Header
           hasResult={false}
           onOpenVault={() => setIsVaultOpen(true)}
@@ -168,206 +169,185 @@ export default function Index() {
           }}
         />
 
-        <main className="flex-grow pt-20 pb-20">
-        <AnimatePresence mode="wait">
-          {isLoading ? (
-            <motion.div
-              key="loading"
-              initial={{ opacity: 0 }}
-              animate={{ opacity: 1 }}
-              exit={{ opacity: 0 }}
-              className="px-4 md:px-6 py-8 md:py-10"
-            >
-              <div className="max-w-4xl mx-auto space-y-6">
-                <section className="glass-card rounded-[2rem] p-6 md:p-8 border-white/10 shadow-2xl">
-                  <p className="text-[10px] font-black uppercase tracking-[0.2em] text-muted-foreground mb-2">
-                    Step 2 in progress
+        <main className="w-full py-20 px-4">
+          <AnimatePresence mode="wait">
+            {isLoading ? (
+              <motion.div
+                key="loading"
+                initial={{ opacity: 0 }}
+                animate={{ opacity: 1 }}
+                exit={{ opacity: 0 }}
+                className="max-w-4xl mx-auto space-y-10"
+              >
+                <section className="glass-card rounded-[3rem] p-8 md:p-12 border-white/10 shadow-2xl">
+                  <p className="text-[11px] font-black uppercase tracking-[0.25em] text-primary mb-4">
+                    Orchestration in progress
                   </p>
-                  <h2 className="text-3xl md:text-4xl font-black tracking-tight mb-3">
-                    Summarizing your input.
+                  <h2 className="text-4xl md:text-5xl font-black tracking-tighter mb-4 leading-tight">
+                    Transforming your material into a study session.
                   </h2>
-                  <p className="text-muted-foreground leading-relaxed max-w-2xl">
-                    The app is reading the content, extracting the core ideas,
-                    and preparing the study session.
+                  <p className="text-xl text-muted-foreground leading-relaxed max-w-2xl font-medium">
+                    Klaro AI is analyzing deep semantic structures, extracting key terms, and building your personalized learning roadmap.
                   </p>
                   {pendingPrompt && (
-                    <div className="mt-5 rounded-2xl border border-white/10 bg-white/5 p-4">
-                      <p className="text-[10px] font-black uppercase tracking-[0.2em] text-muted-foreground mb-2">
-                        Source in progress
+                    <div className="mt-8 rounded-3xl border border-white/10 bg-white/5 p-6 backdrop-blur-md">
+                      <p className="text-[10px] font-black uppercase tracking-[0.2em] text-muted-foreground mb-3">
+                        Source text snippet
                       </p>
-                      <p className="text-sm text-muted-foreground line-clamp-4 leading-relaxed">
+                      <p className="text-sm text-muted-foreground line-clamp-3 leading-relaxed font-medium">
                         {pendingPrompt}
                       </p>
                     </div>
                   )}
                 </section>
                 <LoadingState />
-              </div>
-            </motion.div>
-          ) : (
-            <motion.section
-              key="landing"
-              initial={{ opacity: 0, y: 20 }}
-              animate={{ opacity: 1, y: 0 }}
-              exit={{ opacity: 0, scale: 0.95 }}
-              className="container max-w-4xl mx-auto px-4 py-8 md:py-16"
-            >
-              <div className="text-center space-y-6 mb-12 relative">
-                <motion.div
-                  initial={{ scale: 0, y: 10 }}
-                  animate={{ scale: 1, y: 0 }}
-                  className="inline-flex items-center gap-2 px-6 py-2 rounded-full bg-primary/5 backdrop-blur-md border border-primary/10 text-[11px] font-black uppercase tracking-[0.2em] text-primary shadow-2xl shadow-primary/10"
-                >
-                  <Sparkles className="w-4 h-4 fill-primary/20" />
-                  Klaro AI Study Flow
-                </motion.div>
-                <div className="space-y-1">
-                  <h1 className="text-6xl md:text-9xl font-black tracking-tighter leading-[0.85] bg-clip-text text-transparent bg-gradient-to-b from-foreground to-foreground/40">
-                    Focus. Learn.
-                    <br />
-                    <span className="text-primary italic-custom px-4">
-                      Master.
-                    </span>
-                  </h1>
-                </div>
-                <p className="text-lg md:text-2xl text-muted-foreground font-medium max-w-3xl mx-auto leading-relaxed opacity-80">
-                  Import documents, share links, or paste text. Klaro AI
-                  transforms any material into a structured study session with
-                  summaries, visuals, and practice.
-                </p>
-              </div>
-
-              <div className="relative group max-w-2xl mx-auto z-10 hover:z-50 transition-all duration-500">
-                <div className="absolute -inset-1 bg-gradient-to-r from-primary/60 to-accent/60 rounded-[2.5rem] blur-xl opacity-30 group-hover:opacity-70 group-hover:-inset-2 transition-all duration-1000" />
-                <TextInput onSubmit={handleSummarize} isLoading={isLoading} />
-              </div>
-
-              {/* Features showcase */}
-              <motion.div
-                initial={{ opacity: 0, y: 30 }}
-                whileInView={{ opacity: 1, y: 0 }}
-                transition={{ duration: 0.6 }}
-                viewport={{ once: true }}
-                className="max-w-4xl mx-auto mt-20"
-              >
-                <div className="text-center mb-12">
-                  <p className="text-xs font-black uppercase tracking-[0.2em] text-muted-foreground mb-3">
-                    Flexible Input Methods
-                  </p>
-                  <h2 className="text-3xl md:text-4xl font-black tracking-tight">
-                    Study from anywhere
-                  </h2>
-                </div>
-
-                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-                  {/* Feature cards */}
-                  <FeatureCard
-                    icon={<FileText className="w-6 h-6" />}
-                    title="Multiple Formats"
-                    description="PDF, Word, PPT, CSV, TXT documents"
-                    color="indigo"
-                  />
-                  <FeatureCard
-                    icon={<Link2 className="w-6 h-6" />}
-                    title="Shared Links"
-                    description="Google Drive, Wikipedia, Medium, more"
-                    color="violet"
-                  />
-                  <FeatureCard
-                    icon={<BookOpen className="w-6 h-6" />}
-                    title="Direct Text"
-                    description="Paste or type content directly"
-                    color="amber"
-                  />
-                  <FeatureCard
-                    icon={<Brain className="w-6 h-6" />}
-                    title="Smart Summaries"
-                    description="AI-powered condensing with visuals"
-                    color="emerald"
-                  />
-                  <FeatureCard
-                    icon={<Zap className="w-6 h-6" />}
-                    title="Interactive Visuals"
-                    description="Mind maps and learning infographics"
-                    color="rose"
-                  />
-                  <FeatureCard
-                    icon={<Sparkles className="w-6 h-6" />}
-                    title="Practice Tools"
-                    description="Quizzes, flashcards, focus timers"
-                    color="cyan"
-                  />
-                </div>
               </motion.div>
-
-              {/* How it works */}
-              <motion.div
-                initial={{ opacity: 0, y: 30 }}
-                whileInView={{ opacity: 1, y: 0 }}
-                transition={{ duration: 0.6, delay: 0.2 }}
-                viewport={{ once: true }}
-                className="max-w-4xl mx-auto mt-20"
+            ) : (
+              <motion.section
+                key="landing"
+                initial={{ opacity: 0, y: 20 }}
+                animate={{ opacity: 1, y: 0 }}
+                exit={{ opacity: 0, scale: 0.98 }}
+                className="max-w-5xl mx-auto"
               >
-                <div className="text-center mb-12">
-                  <p className="text-xs font-black uppercase tracking-[0.2em] text-muted-foreground mb-3">
-                    The Klaro Workflow
+                {/* Hero */}
+                <div className="text-center space-y-8 mb-16 relative">
+                  <motion.div
+                    initial={{ scale: 0.9, opacity: 0 }}
+                    animate={{ scale: 1, opacity: 1 }}
+                    className="inline-flex items-center gap-3 px-6 py-2.5 rounded-full bg-primary/10 backdrop-blur-xl border border-primary/20 text-[11px] font-black uppercase tracking-[0.3em] text-primary shadow-2xl shadow-primary/20"
+                  >
+                    <Sparkles className="w-4 h-4 fill-primary/30" />
+                    Neuro-Inclusive Learning
+                  </motion.div>
+                  <div className="space-y-4">
+                    <h1 className="text-7xl md:text-[9rem] font-black tracking-tighter leading-[0.8] bg-clip-text text-transparent bg-gradient-to-b from-foreground to-foreground/40 pb-4">
+                      Focus. Learn.
+                      <br />
+                      <span className="text-primary italic-custom px-6 inline-block">
+                        Master.
+                      </span>
+                    </h1>
+                  </div>
+                  <p className="text-xl md:text-3xl text-muted-foreground font-medium max-w-3xl mx-auto leading-tight opacity-90">
+                    Import documents, share links, or paste text. Klaro AI
+                    transforms any material into a high-clarity study session.
                   </p>
-                  <h2 className="text-3xl md:text-4xl font-black tracking-tight">
-                    From chaos to clarity
-                  </h2>
                 </div>
 
-                <div className="grid grid-cols-1 md:grid-cols-4 gap-3 md:gap-2">
-                  {[
-                    {
-                      step: "1",
-                      title: "Upload",
-                      desc: "Documents, links, or text",
-                    },
-                    {
-                      step: "2",
-                      title: "Summarize",
-                      desc: "AI extracts key ideas",
-                    },
-                    {
-                      step: "3",
-                      title: "Visualize",
-                      desc: "Mind maps & infographics",
-                    },
-                    { step: "4", title: "Master", desc: "Quiz & flashcards" },
-                  ].map((item, idx) => (
-                    <motion.div
-                      key={idx}
-                      initial={{ opacity: 0, y: 10 }}
-                      whileInView={{ opacity: 1, y: 0 }}
-                      transition={{ delay: idx * 0.1 }}
-                      viewport={{ once: true }}
-                      className="relative"
-                    >
-                      <div className="glass-card rounded-[2rem] p-6 border-white/10 shadow-xl text-center">
-                        <div className="inline-flex items-center justify-center w-12 h-12 rounded-full bg-gradient-to-br from-primary to-indigo-500 font-black text-white mb-3">
+                {/* Input Area */}
+                <div className="relative group max-w-3xl mx-auto z-20 mb-32">
+                  <div className="absolute -inset-2 bg-gradient-to-r from-primary/40 to-accent/40 rounded-[3rem] blur-2xl opacity-20 group-hover:opacity-50 transition-all duration-1000" />
+                  <TextInput onSubmit={handleSummarize} isLoading={isLoading} />
+                </div>
+
+                {/* Features showcase */}
+                <div className="space-y-16 mb-32">
+                  <div className="text-center">
+                    <p className="text-xs font-black uppercase tracking-[0.3em] text-primary/60 mb-4">
+                      The OS for your brain
+                    </p>
+                    <h2 className="text-4xl md:text-6xl font-black tracking-tight">
+                      Designed for how you learn
+                    </h2>
+                  </div>
+
+                  <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+                    <FeatureCard
+                      icon={<FileText className="w-7 h-7" />}
+                      title="Multiple Formats"
+                      description="Process PDF, Word, PPT, CSV, and TXT documents with deep semantic extraction."
+                      color="indigo"
+                    />
+                    <FeatureCard
+                      icon={<Link2 className="w-7 h-7" />}
+                      title="Shared Links"
+                      description="Import content directly from Google Drive, Wikipedia, Medium, arXiv, and more."
+                      color="violet"
+                    />
+                    <FeatureCard
+                      icon={<BookOpen className="w-7 h-7" />}
+                      title="Direct Input"
+                      description="Paste or type content directly into the dyslexic-friendly text editor."
+                      color="amber"
+                    />
+                    <FeatureCard
+                      icon={<Brain className="w-7 h-7" />}
+                      title="Smart Summaries"
+                      description="AI-powered condensations that capture thesis, arguments, and actionable takeaways."
+                      color="emerald"
+                    />
+                    <FeatureCard
+                      icon={<Zap className="w-7 h-7" />}
+                      title="Visual learning"
+                      description="Interactive Mermaid concept maps and visual infographics generated instantly."
+                      color="rose"
+                    />
+                    <FeatureCard
+                      icon={<Sparkles className="w-7 h-7" />}
+                      title="Recall Tools"
+                      description="Adaptive quizzes, high-yield flashcards, and dedicated focus timers."
+                      color="cyan"
+                    />
+                  </div>
+                </div>
+
+                {/* The Workflow */}
+                <div className="space-y-16 pb-20">
+                  <div className="text-center">
+                    <p className="text-xs font-black uppercase tracking-[0.3em] text-primary/60 mb-4">
+                      The Klaro Method
+                    </p>
+                    <h2 className="text-4xl md:text-6xl font-black tracking-tight">
+                      From chaos to clarity
+                    </h2>
+                  </div>
+
+                  <div className="grid grid-cols-1 md:grid-cols-4 gap-6">
+                    {[
+                      {
+                        step: "1",
+                        title: "Upload",
+                        desc: "Import documents, links, or raw text",
+                      },
+                      {
+                        step: "2",
+                        title: "Summarize",
+                        desc: "Deep semantic analysis by AI",
+                      },
+                      {
+                        step: "3",
+                        title: "Visualize",
+                        desc: "Maps & infographics for visuals",
+                      },
+                      { 
+                        step: "4", 
+                        title: "Master", 
+                        desc: "Active recall with quiz & cards" 
+                      },
+                    ].map((item, idx) => (
+                      <motion.div
+                        key={idx}
+                        whileHover={{ y: -8 }}
+                        className="glass-card rounded-[2.5rem] p-8 border-white/10 shadow-2xl text-center relative group"
+                      >
+                        <div className="inline-flex items-center justify-center w-14 h-14 rounded-3xl bg-gradient-to-br from-primary to-indigo-600 font-black text-white text-xl mb-6 shadow-xl shadow-primary/20 group-hover:scale-110 transition-transform">
                           {item.step}
                         </div>
-                        <h3 className="font-black text-lg mb-1">
+                        <h3 className="font-black text-2xl mb-2 tracking-tight">
                           {item.title}
                         </h3>
-                        <p className="text-xs text-muted-foreground">
+                        <p className="text-sm text-muted-foreground leading-relaxed font-medium">
                           {item.desc}
                         </p>
-                      </div>
-                      {idx < 3 && (
-                        <div className="hidden md:block absolute top-1/2 -right-2 translate-y-[-50%] text-primary/30">
-                          →
-                        </div>
-                      )}
-                    </motion.div>
-                  ))}
+                      </motion.div>
+                    ))}
+                  </div>
                 </div>
-              </motion.div>
-            </motion.section>
-          )}
-        </AnimatePresence>
-      </main>
+              </motion.section>
+            )}
+          </AnimatePresence>
+        </main>
       </div>
     </div>
   );
@@ -385,41 +365,34 @@ function FeatureCard({
   color: string;
 }) {
   const colorClasses = {
-    indigo:
-      "border-indigo-500/20 bg-indigo-500/5 hover:bg-indigo-500/10 text-indigo-400",
-    violet:
-      "border-violet-500/20 bg-violet-500/5 hover:bg-violet-500/10 text-violet-400",
-    amber:
-      "border-amber-500/20 bg-amber-500/5 hover:bg-amber-500/10 text-amber-400",
-    emerald:
-      "border-emerald-500/20 bg-emerald-500/5 hover:bg-emerald-500/10 text-emerald-400",
-    rose: "border-rose-500/20 bg-rose-500/5 hover:bg-rose-500/10 text-rose-400",
-    cyan: "border-cyan-500/20 bg-cyan-500/5 hover:bg-cyan-500/10 text-cyan-400",
+    indigo: "border-indigo-500/20 bg-indigo-500/5 text-indigo-400 shadow-indigo-500/5",
+    violet: "border-violet-500/20 bg-violet-500/5 text-violet-400 shadow-violet-500/5",
+    amber: "border-amber-500/20 bg-amber-500/5 text-amber-400 shadow-amber-500/5",
+    emerald: "border-emerald-500/20 bg-emerald-500/5 text-emerald-400 shadow-emerald-500/5",
+    rose: "border-rose-500/20 bg-rose-500/5 text-rose-400 shadow-rose-500/5",
+    cyan: "border-cyan-500/20 bg-cyan-500/5 text-cyan-400 shadow-cyan-500/5",
   };
 
   return (
     <motion.div
       whileHover={{ 
-        scale: 1.05, 
+        scale: 1.02, 
         y: -5,
-        boxShadow: "0 25px 50px -12px rgba(0,0,0,0.5)",
+        boxShadow: "0 30px 60px -12px rgba(0,0,0,0.4)",
       }}
-      whileTap={{ scale: 0.95 }}
-      className={`glass-card rounded-[1.75rem] p-6 border transition-colors duration-300 cursor-pointer relative overflow-hidden group ${
+      className={`glass-card rounded-[2.5rem] p-8 border transition-all duration-500 cursor-default relative overflow-hidden group ${
         colorClasses[color as keyof typeof colorClasses]
       }`}
     >
       <div className="absolute inset-0 bg-gradient-to-br from-white/10 to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-500 pointer-events-none" />
       <motion.div 
-        initial={{ rotate: 0 }}
         whileHover={{ rotate: [0, -10, 10, 0], scale: 1.1 }}
-        transition={{ duration: 0.5 }}
-        className="mb-4 inline-block drop-shadow-2xl"
+        className="mb-6 inline-block drop-shadow-2xl"
       >
         {icon}
       </motion.div>
-      <h4 className="font-black text-sm mb-1">{title}</h4>
-      <p className="text-xs text-muted-foreground">{description}</p>
+      <h4 className="font-black text-lg mb-2 tracking-tight text-foreground">{title}</h4>
+      <p className="text-sm text-muted-foreground font-medium leading-relaxed">{description}</p>
     </motion.div>
   );
 }
