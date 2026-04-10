@@ -1,6 +1,6 @@
-# Contributing to Lumina OS
+# Contributing to Klaro AI
 
-Thank you for your interest in contributing to Lumina OS! This document provides guidelines for contributors.
+Thank you for your interest in contributing to Klaro AI! This document provides guidelines for contributors.
 
 ## Development Setup
 
@@ -11,7 +11,7 @@ Thank you for your interest in contributing to Lumina OS! This document provides
 2. **Installation**
    ```bash
    git clone <repository-url>
-   cd lumina-os
+   cd klaro-ai
    npm install
    cd server && npm install
    cd ..
@@ -38,7 +38,7 @@ Thank you for your interest in contributing to Lumina OS! This document provides
 ## Project Structure
 
 ```
-lumina-os/
+klaro-ai/
 ├── src/                    # Frontend React application
 │   ├── components/         # Reusable UI components
 │   ├── pages/             # Page components

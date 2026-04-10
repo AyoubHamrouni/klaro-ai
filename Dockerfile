@@ -1,19 +1,19 @@
 # Klaro AI API Server Dockerfile
-# Multi-stage build for optimized production image on GCP Cloud Run
+# Automatically detected by GCP deployments from the root directory.
 
 # ── Build stage ──
 FROM node:20-alpine AS builder
 
 WORKDIR /app
 
-# Copy package files for layer caching
-COPY package*.json ./
+# Copy package files for layer caching (from the server directory)
+COPY server/package*.json ./
 
 # Install all dependencies
 RUN npm ci
 
-# Copy source code
-COPY . .
+# Copy server source code
+COPY server/ .
 
 # ── Production stage ──
 FROM node:20-alpine AS production
@@ -28,7 +28,7 @@ RUN addgroup -g 1001 -S nodejs && \
 WORKDIR /app
 
 # Copy package files and install production deps only
-COPY package*.json ./
+COPY server/package*.json ./
 RUN npm ci --omit=dev && npm cache clean --force
 
 # Copy application source from builder

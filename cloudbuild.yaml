@@ -21,8 +21,8 @@ steps:
         "-t",
         "gcr.io/$PROJECT_ID/${_BACKEND_SERVICE}:latest",
         "-f",
-        "server/Dockerfile",
-        "server",
+        "Dockerfile",
+        ".",
       ]
 
   # ── Step 2: Push backend image to Container Registry ──
