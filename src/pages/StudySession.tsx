@@ -221,7 +221,7 @@ export default function StudySession() {
 
   if (!isSessionResolved || !session) {
     return (
-      <div className="min-h-[100dvh] bg-background pt-16 md:pt-20">
+      <div className="w-full bg-background pt-16 md:pt-20">
         <div className="max-w-4xl mx-auto px-4 md:px-6 py-10">
           <LoadingState />
         </div>
@@ -252,7 +252,7 @@ export default function StudySession() {
 
   return (
     <div
-      className={`min-h-[100dvh] relative overflow-x-hidden transition-colors duration-700 ${dyslexicFont ? "font-dyslexic" : ""} ${fontScaleClass} ${focusMode ? "bg-black text-white" : "bg-background"}`}
+      className={`relative w-full transition-colors duration-700 ${dyslexicFont ? "font-dyslexic" : ""} ${fontScaleClass} ${focusMode ? "bg-black text-white" : "bg-background"}`}
     >
       <div
         className={`fixed inset-0 pointer-events-none z-0 transition-opacity duration-1000 ${focusMode ? "opacity-5" : "opacity-100"}`}
@@ -293,7 +293,7 @@ export default function StudySession() {
         }}
       />
 
-      <main className="min-h-[calc(100dvh-4rem)] pt-16 md:pt-20 pb-24 md:pb-10">
+      <main className="w-full pt-16 md:pt-20 pb-24 md:pb-10">
         <motion.div
           initial={{ opacity: 0, scale: 1.02 }}
           animate={{ opacity: 1, scale: 1 }}
