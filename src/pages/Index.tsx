@@ -104,7 +104,7 @@ export default function Index() {
 
   return (
     <div
-      className={`min-h-full w-full relative transition-colors duration-700 ${dyslexicFont ? "font-dyslexic" : ""} ${fontScaleClass} bg-background`}
+      className={`min-h-screen w-full relative transition-colors duration-700 ${dyslexicFont ? "font-dyslexic" : ""} ${fontScaleClass} bg-background`}
     >
       {/* Background Elements - Fixed layer for stability */}
       <div className="fixed inset-0 pointer-events-none z-0 overflow-hidden">
@@ -136,7 +136,7 @@ export default function Index() {
         />
       </div>
 
-      <div className="relative z-10 flex flex-col min-h-screen">
+      <div className="relative z-10 flex flex-col">
         <Header
           hasResult={false}
           onOpenVault={() => setIsVaultOpen(true)}
