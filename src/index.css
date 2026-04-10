@@ -69,6 +69,7 @@
 
   html {
     scroll-behavior: smooth;
+    overflow-y: auto !important;
   }
 
   body {
@@ -80,6 +81,7 @@
     background-attachment: fixed;
     min-height: 100vh;
     overflow-x: hidden;
+    overflow-y: auto !important;
   }
 
   .glass-card {

@@ -104,13 +104,13 @@ export default function Index() {
 
   return (
     <div
-      className={`min-h-screen w-full relative overflow-x-hidden overflow-y-auto ${dyslexicFont ? "font-dyslexic" : ""} ${fontScaleClass} bg-background`}
+      className={`min-h-screen w-full relative ${dyslexicFont ? "font-dyslexic" : ""} ${fontScaleClass} bg-background`}
     >
-      {/* Fixed Background Elements */}
-      <div className="fixed inset-0 pointer-events-none z-0 overflow-hidden">
+      {/* Background Elements - Absolute instead of fixed to avoid scroll hijacking in some browsers */}
+      <div className="absolute inset-0 pointer-events-none z-0 overflow-hidden">
         <motion.div 
           style={{ y: backgroundY, scale: backgroundScale }}
-          className="absolute inset-0 opacity-30 filter contrast-125 brightness-[0.95]"
+          className="fixed inset-0 opacity-30 filter contrast-125 brightness-[0.95]"
         >
           <img
             src="/branding/hero-bg.png"
@@ -126,17 +126,17 @@ export default function Index() {
              y: mousePos.y - 300,
            }}
            transition={{ type: "spring", damping: 40, stiffness: 100, mass: 0.5 }}
-           className="absolute w-[600px] h-[600px] bg-primary/10 rounded-full blur-[150px] mix-blend-screen"
+           className="fixed w-[600px] h-[600px] bg-primary/10 rounded-full blur-[150px] mix-blend-screen"
         />
 
-        <div className="absolute top-[-10%] left-[-10%] w-[50%] h-[50%] bg-primary/10 rounded-full blur-[120px] animate-pulse mix-blend-screen" />
+        <div className="fixed top-[-10%] left-[-10%] w-[50%] h-[50%] bg-primary/10 rounded-full blur-[120px] animate-pulse mix-blend-screen" />
         <div
-          className="absolute bottom-[-10%] right-[-10%] w-[50%] h-[50%] bg-accent/10 rounded-full blur-[120px] animate-pulse mix-blend-screen"
+          className="fixed bottom-[-10%] right-[-10%] w-[50%] h-[50%] bg-accent/10 rounded-full blur-[120px] animate-pulse mix-blend-screen"
           style={{ animationDelay: "1s" }}
         />
       </div>
 
-      <div className="relative z-10">
+      <div className="relative z-10 flex flex-col">
         <Header
           hasResult={false}
           onOpenVault={() => setIsVaultOpen(true)}
@@ -168,7 +168,7 @@ export default function Index() {
           }}
         />
 
-        <main className="pt-20 pb-20">
+        <main className="flex-grow pt-20 pb-20">
         <AnimatePresence mode="wait">
           {isLoading ? (
             <motion.div
