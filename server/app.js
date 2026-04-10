@@ -10,9 +10,14 @@
 
 import express from "express";
 import cors from "cors";
+import path from "path";
+import { fileURLToPath } from "url";
 import "dotenv/config";
 import studyRoutes from "./routes/study.js";
 import { errorHandler, notFoundHandler } from "./middleware/error.js";
+
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = path.dirname(__filename);
 
 /**
  * Express application instance
@@ -116,6 +121,23 @@ app.get("/health", (req, res) => {
  * All AI-powered study assistance endpoints
  */
 app.use("/", studyRoutes);
+
+// ==========================================
+// FRONTEND STATIC SERVING (PRODUCTION)
+// ==========================================
+
+/**
+ * Serve the built Vite frontend statically and resolve React Router
+ */
+app.use(express.static(path.join(__dirname, "dist")));
+
+// Fallback all other GET requests to the React index.html
+app.get("*", (req, res, next) => {
+  if (req.method !== "GET" || req.path.startsWith("/api")) {
+    return next();
+  }
+  res.sendFile(path.join(__dirname, "dist", "index.html"));
+});
 
 // ==========================================
 // ERROR HANDLING
