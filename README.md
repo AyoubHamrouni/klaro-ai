@@ -59,7 +59,7 @@ To maximize speed and minimize network waterfalls, we implemented **Atomic Orche
 - **Smart Load Balancing**: Provider selection with adaptive cooldowns prevents API exhaustion.
 - **Response Caching**: In-memory caching for identical study sessions provides sub-100ms response times for repeated lookups.
 - **Self-Healing Backend**: Silent error handling ensures a seamless experience.
-- **Viewport Mastery**: Uses `100dvh` and smart CSS Grid for a 1:1 viewport match on mobile and desktop.
+- **Full-Stack Containerization**: Serves the optimized frontend statically via the Express backend for unified deployment.
 
 ---
 
@@ -102,11 +102,10 @@ ELEVENLABS_API_KEY="your_elevenlabs_api_key_here"
 
 # Application Configuration
 FRONTEND_ORIGIN="http://localhost:5173"
-GEMINI_MODEL="gemini-1.5-flash"
-OPENROUTER_MODEL="google/gemma-4-26b-a4b-it:free"
+PORT="3001"
 ```
 
-And a `.env` file in the project root:
+Create a `.env` file in the project root:
 
 ```env
 VITE_API_URL="http://localhost:3001"
@@ -116,31 +115,51 @@ VITE_API_URL="http://localhost:3001"
 
 ```bash
 # Clone the repository
-git clone <repository-url>
-cd lumina
+git clone https://github.com/AyoubHamrouni/klaro-ai.git
+cd klaro-ai
 
 # Install dependencies
 npm install
 cd server && npm install
 cd ..
 
-# Start development servers
+# Start development servers (frontend and backend concurrently)
 npm run dev
 ```
 
 The application will be available at:
-- **Frontend**: http://localhost:5173 (Vite dev server)
-- **Backend API**: http://localhost:3001 (Express server)
+- **Frontend**: `http://localhost:5173` (Vite dev server)
+- **Backend API**: `http://localhost:3001` (Express server)
 
-### 3. Build for Production
+---
+
+## 🚀 Deployment to GCP (Cloud Run)
+
+Klaro AI is configured for a streamlined, full-stack deployment via Docker and Google Cloud Run. The backend Express server statically serves the built Vite frontend, eliminating CORS issues and simplifying the infrastructure.
+
+### Option 1: Automated via Cloud Build
+
+We have provided a `cloudbuild.yaml` file for automated CI/CD.
 
 ```bash
-# Build the frontend
-npm run build
-
-# Start production server
-npm run start
+gcloud builds submit --config cloudbuild.yaml \
+  --substitutions=_REGION="us-central1",_BACKEND_SERVICE="klaro-api"
 ```
+
+### Option 2: Manual Deployment via gcloud
+
+1. **Build and Deploy in one command**:
+   ```bash
+   gcloud run deploy klaro-ai \
+     --source . \
+     --platform managed \
+     --region us-central1 \
+     --allow-unauthenticated \
+     --memory 1Gi \
+     --set-env-vars="NODE_ENV=production,GEMINI_API_KEY=YOUR_KEY,OPENROUTER_API_KEY=YOUR_KEY,ELEVENLABS_API_KEY=YOUR_KEY"
+   ```
+
+*Note: For production, it is highly recommended to use GCP Secret Manager for your API keys rather than plain environment variables.*
 
 ---
 
@@ -157,105 +176,6 @@ npm run start
 | `/chat` | POST | Interactive study chat with context |
 | `/mindmap` | POST | Generate concept map from summary |
 | `/generate-quiz` | POST | Generate multiple-choice quiz from text |
-
-### Request/Response Examples
-
-**Study Bundle Request:**
-```json
-{
-  "text": "Your study material here..."
-}
-```
-
-**Study Bundle Response:**
-```json
-{
-  "summary": "AI-generated analytical summary...",
-  "keyTerms": [
-    {
-      "term": "Domain-Specific Term",
-      "definition": "Contextual definition from the document..."
-    }
-  ],
-  "tasks": [
-    "Study task 1",
-    "Study task 2"
-  ],
-  "flashcards": [
-    {
-      "question": "What is the main argument regarding...?",
-      "answer": "The text states that..."
-    }
-  ],
-  "mindmapData": "mindmap\n  root((Topic))\n    Branch\n      Sub-branch",
-  "wordCount": 120,
-  "originalWordCount": 450,
-  "difficulty_level": "intermediate"
-}
-```
-
----
-
-## 🧪 Testing
-
-```bash
-# Lint code
-npm run lint
-```
-
----
-
-## 📈 Impact Metrics
-
-- **80% Reduction** in visual crowding through adaptive layouts.
-- **4x Faster** content consumption through structured study sessions.
-- **99.9% Uptime** through multi-model AI fallback system.
-- **Zero-Barrier Entry**: Built specifically to run on free-tier infrastructure.
-
----
-
-## 🚀 Deployment to GCP
-
-### Backend (Cloud Run)
-
-1. **Build and push Docker image**:
-   ```bash
-   cd server
-   gcloud builds submit --tag gcr.io/YOUR_PROJECT/klaro-api
-   ```
-
-2. **Deploy to Cloud Run**:
-   ```bash
-   gcloud run deploy klaro-api \
-     --image gcr.io/YOUR_PROJECT/klaro-api \
-     --platform managed \
-     --region us-central1 \
-     --allow-unauthenticated \
-     --set-env-vars GEMINI_API_KEY=YOUR_KEY,OPENROUTER_API_KEY=YOUR_KEY,ELEVENLABS_API_KEY=YOUR_KEY
-   ```
-
-### Frontend (Cloud Storage)
-
-1. **Build the frontend**:
-   ```bash
-   npm run build
-   ```
-
-2. **Upload to Cloud Storage**:
-   ```bash
-   gsutil -m cp -r dist/* gs://YOUR_BUCKET/
-   ```
-
-3. **Make public**:
-   ```bash
-   gsutil iam ch -r gs://YOUR_BUCKET/** -u allUsers:objectViewer
-   ```
-
-### Environment Variables
-
-Use GCP Secret Manager for sensitive keys. Copy `server/.env.example` to `server/.env` and fill in your keys.
-
-For production on GCP, consider using Vertex AI (Gemini) for higher quotas and better reliability.
 
 ---
 
