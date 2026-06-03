@@ -9,6 +9,7 @@
  */
 
 import express from "express";
+import helmet from "helmet";
 import cors from "cors";
 import path from "path";
 import { fileURLToPath } from "url";
@@ -87,6 +88,8 @@ const corsOptions = {
 // ==========================================
 // MIDDLEWARE CONFIGURATION
 // ==========================================
+
+app.use(helmet());
 
 /**
  * CORS middleware
